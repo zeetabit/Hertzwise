@@ -3,7 +3,7 @@ import AppKit
 import AVFoundation
 import Observation
 
-/// While the EQ runs, the output device belongs to it: the engine holds the
+/// While the EQ runs, the output device belongs to it: its path holds the
 /// device at its processing rate, and automatic or manual sample-rate
 /// switching stands aside (`SampleRateModel` checks this). Main thread only.
 @Observable
@@ -27,7 +27,9 @@ final class EQModel {
         didSet { profileChanged() }
     }
     private(set) var isEnabled = false
-    private(set) var engineRunning = false
+    /// On, with a connected device whose EQ switch is on.
+    var engineRunning: Bool { isEnabled && (paths.eqPrimaryUID != nil || stagedRunning) }
+    @ObservationIgnored private var stagedRunning = false
     private(set) var currentSampleRate: Double?
     private(set) var automaticHeadroomDB = 0.0
     private(set) var clippingDetected = false
@@ -47,13 +49,11 @@ final class EQModel {
             if isEnabled {
                 OutputRateLock.shared.heldRate = holdsFixedRate ? ProcessTapEngine.processingRate : nil
             }
-            let engine = self.engine
-            let hold = holdsFixedRate
-            engine.controlQueue.async { engine.setHoldsProcessingRate(hold) }
+            paths.setHoldsProcessingRate(holdsFixedRate)
         }
     }
     @ObservationIgnored private static let holdsFixedRateKey = "eqHoldsFixedRate"
-    @ObservationIgnored private let engine = ProcessTapEngine()
+    @ObservationIgnored private let paths = OutputPaths.shared
     @ObservationIgnored private var saveWork: DispatchWorkItem?
     @ObservationIgnored private var engineApplyWork: DispatchWorkItem?
     @ObservationIgnored private var clippingTimer: Timer?
@@ -64,43 +64,24 @@ final class EQModel {
         let store = EQModel.load()
         profiles = store.profiles
         profile = store.profiles.first(where: { $0.id == store.selectedID }) ?? store.profiles[0]
-        let hold = holdsFixedRate
-        let engine = self.engine
-        engine.controlQueue.async { engine.setHoldsProcessingRate(hold) }
-
-        engine.onSampleRateChange = { [weak self] rate in
-            Task { @MainActor in
-                self?.currentSampleRate = rate
-                self?.analyzer.sampleRate = rate
-                if self?.isEnabled == true, self?.holdsFixedRate == true {
-                    OutputRateLock.shared.heldRate = rate
-                }
+        paths.onEQSampleRateChange = { [weak self] rate in
+            MainActor.assumeIsolated {
+                guard let self, self.isEnabled else { return }
+                self.currentSampleRate = rate
+                self.analyzer.sampleRate = rate
+                if self.holdsFixedRate { OutputRateLock.shared.heldRate = rate }
             }
         }
-        engine.onHeadroomChange = { [weak self] attenuation in
-            Task { @MainActor in
+        paths.onEQHeadroomChange = { [weak self] attenuation in
+            MainActor.assumeIsolated {
                 guard let self, self.automaticHeadroomDB != attenuation else { return }
                 self.automaticHeadroomDB = attenuation
             }
         }
-        engine.onInputSilence = { [weak self] silent in
-            guard let self, self.isEnabled else { return }
-            if silent {
-                self.statusMessage = self.loc("No audio from Apple Music is reaching the EQ.")
-            } else if self.statusMessage == self.loc("No audio from Apple Music is reaching the EQ.") {
-                self.statusMessage = self.loc("Equalizer on — Apple Music is no longer bit-perfect.")
-            }
-        }
-        engine.onRuntimeError = { [weak self] message in
-            Task { @MainActor in
-                guard let self else { return }
-                OutputRateLock.shared.heldRate = nil
-                self.engineRunning = false
-                self.isEnabled = false
-                self.currentSampleRate = nil
-                self.automaticHeadroomDB = 0
-                self.analyzer.stop()
-                self.stopClippingMonitoring()
+        paths.onEQError = { [weak self] message in
+            MainActor.assumeIsolated {
+                guard let self, self.isEnabled else { return }
+                self.setEnabled(false)
                 self.statusMessage = message
             }
         }
@@ -112,13 +93,10 @@ final class EQModel {
         guard enabled != isEnabled else { return }
         isEnabled = enabled   // optimistic — the switch stays responsive
 
-        let engine = self.engine
-        let analyzer = self.analyzer
-
         if enabled {
             // The tap is read through an aggregate device's input, which macOS
             // gates as audio input (microphone) access. Without it the tap
-            // delivers silence while Music stays muted, so the engine never
+            // delivers silence while the players stay muted, so the EQ never
             // starts unless access is granted.
             switch AVCaptureDevice.authorizationStatus(for: .audio) {
             case .authorized:
@@ -134,61 +112,32 @@ final class EQModel {
                 failAudioInputAccess()
             }
         } else {
-            engineRunning = false
             currentSampleRate = nil
             automaticHeadroomDB = 0
             analyzer.stop()
             stopClippingMonitoring()
             statusMessage = loc("Equalizer off — bit-perfect playback restored.")
             OutputRateLock.shared.heldRate = nil
-            engine.controlQueue.async {
-                engine.setActive(false)
-                engine.stop()
-                engine.restoreOutputRate()
-                engine.setSampleSink(nil)
-            }
+            paths.setEQ(nil)
         }
     }
 
     private func failAudioInputAccess() {
         OutputRateLock.shared.heldRate = nil
         isEnabled = false
-        statusMessage = loc("SyncHz needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone.")
+        statusMessage = loc("Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone.")
     }
 
     private func startEngine() {
-        let engine = self.engine
-        let analyzer = self.analyzer
-        statusMessage = loc("Equalizer on — Apple Music is no longer bit-perfect.")
-        // When holding a fixed rate, take the output before the engine changes
+        // When holding a fixed rate, take the output before the paths change
         // it, so automatic switching can't race it back to the track's rate.
         OutputRateLock.shared.heldRate = holdsFixedRate ? ProcessTapEngine.processingRate : nil
-        let snapshot = profile
-        engine.controlQueue.async { [weak self] in
-            engine.setSampleSink(analyzer)
-            engine.apply(profile: snapshot)
-            engine.setActive(true)
-            let started = engine.start()
-            let rate = engine.sampleRate
-            let error = engine.lastError
-            DispatchQueue.main.async {
-                guard let self, self.isEnabled else { return }   // user may have toggled back off
-                if started {
-                    if self.holdsFixedRate { OutputRateLock.shared.heldRate = rate }
-                    self.engineRunning = true
-                    self.currentSampleRate = rate
-                    analyzer.sampleRate = rate
-                    if self.spectrumVisible { analyzer.start() }
-                    self.startClippingMonitoring()
-                } else {
-                    OutputRateLock.shared.heldRate = nil
-                    engine.setSampleSink(nil)
-                    engine.controlQueue.async { engine.restoreOutputRate() }
-                    self.isEnabled = false
-                    self.statusMessage = error ?? self.loc("Couldn't start the EQ engine.")
-                }
-            }
-        }
+        paths.setEQ(OutputPaths.EQ(profile: profile, holdsProcessingRate: holdsFixedRate, spectrum: analyzer))
+        statusMessage = paths.eqPrimaryUID == nil
+            ? loc("No connected device has Equalizer on. Turn it on for a device in the output device menu.")
+            : loc("Equalizer on — the devices it processes are no longer bit-perfect.")
+        if spectrumVisible { analyzer.start() }
+        startClippingMonitoring()
     }
 
     func toggleEnabled() { setEnabled(!isEnabled) }
@@ -196,7 +145,7 @@ final class EQModel {
     func setSpectrumVisible(_ visible: Bool) {
         guard visible != spectrumVisible else { return }
         spectrumVisible = visible
-        guard engineRunning else { return }
+        guard isEnabled else { return }
         if visible { analyzer.start() } else { analyzer.stop() }
     }
 
@@ -311,12 +260,10 @@ final class EQModel {
             profiles[index] = profile
         }
         if isEnabled {
-            let engine = self.engine
+            let paths = self.paths
             let snapshot = profile
             engineApplyWork?.cancel()
-            let work = DispatchWorkItem {
-                engine.controlQueue.async { engine.apply(profile: snapshot) }
-            }
+            let work = DispatchWorkItem { paths.apply(profile: snapshot) }
             engineApplyWork = work
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.025, execute: work)
         }
@@ -325,7 +272,7 @@ final class EQModel {
 
     private func startClippingMonitoring() {
         stopClippingMonitoring()
-        lastClippingEpoch = engine.clippingEventCount()
+        lastClippingEpoch = paths.eqClippingEventCount()
         let timer = Timer(timeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.pollClippingState() }
         }
@@ -340,7 +287,7 @@ final class EQModel {
     }
 
     private func pollClippingState() {
-        let epoch = engine.clippingEventCount()
+        let epoch = paths.eqClippingEventCount()
         if epoch != lastClippingEpoch {
             lastClippingEpoch = epoch
             clippingVisibleUntil = Date().addingTimeInterval(2)
@@ -382,9 +329,9 @@ final class EQModel {
         let manager = FileManager.default
         guard let base = manager.urls(for: .applicationSupportDirectory,
                                       in: .userDomainMask).first else { return nil }
-        // Still "Choritsu" — the app's former name — so profiles saved by
-        // earlier versions keep loading after the rename to SyncHz.
-        let folder = base.appendingPathComponent("Choritsu", isDirectory: true)
+        // Not upstream SyncHz's "Choritsu" folder: the two apps can be
+        // installed side by side and must not overwrite each other's profiles.
+        let folder = base.appendingPathComponent("Hertzwise", isDirectory: true)
         try? manager.createDirectory(at: folder, withIntermediateDirectories: true)
         return folder.appendingPathComponent("eq-profiles.json")
     }
@@ -412,8 +359,8 @@ extension EQModel {
     /// Previews and screenshot rendering only: show the EQ as running at
     /// `sampleRate` without starting the audio engine. Not in release builds.
     func stagePreview(enabled: Bool, sampleRate: Double?) {
+        stagedRunning = enabled
         isEnabled = enabled
-        engineRunning = enabled
         currentSampleRate = sampleRate
     }
 }

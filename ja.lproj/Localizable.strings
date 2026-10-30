@@ -21,7 +21,8 @@
 "Drag a point: frequency × gain · Scroll: Q" = "点をドラッグ：周波数 × ゲイン ・ スクロール：Q";
 "Drag: frequency × gain · Hover point + scroll: Q · Shift: fine" = "ドラッグ：周波数 × ゲイン · ポイント上でスクロール：Q · Shift：微調整";
 "Choose an AutoEQ ParametricEQ.txt file" = "AutoEQ の ParametricEQ.txt ファイルを選択";
-"Equalizer on — Apple Music is no longer bit-perfect." = "イコライザ オン — Apple Music はビットパーフェクトではなくなります。";
+"Equalizer on — the devices it processes are no longer bit-perfect." = "イコライザ オン — 処理中のデバイスはビットパーフェクトではなくなります。";
+"No connected device has Equalizer on. Turn it on for a device in the output device menu." = "イコライザがオンの接続中デバイスがありません。出力デバイスのメニューでデバイスごとにオンにしてください。";
 "Equalizer off — bit-perfect playback restored." = "イコライザ オフ — ビットパーフェクト再生に戻りました。";
 "Couldn't start the EQ engine." = "イコライザエンジンを開始できませんでした。";
 "Imported %1$ld bands from %2$@." = "%2$@ から %1$ld 個のバンドを読み込みました。";
@@ -55,7 +56,7 @@
 "Parametric EQ" = "パラメトリック EQ";
 "Update available — %@" = "アップデートがあります — %@";
 "Checking for updates…" = "アップデートを確認中…";
-"SyncHz is up to date" = "SyncHz は最新です";
+"Hertzwise is up to date" = "Hertzwise は最新です";
 "Update check failed: %@" = "アップデートの確認に失敗しました：%@";
 "Check for Updates…" = "アップデートを確認…";
 "EQ is on — playback is no longer bit-perfect" = "EQ オン — 再生はビットパーフェクトではありません";
@@ -103,17 +104,34 @@
 "Fitted at" = "設計サンプルレート";
 "Fitted at %@" = "%@ で設計";
 "Playback sample rate" = "再生サンプルレート";
-"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. SyncHz reproduces this response at every playback rate." = "このプリセットが設計されたサンプルレート（AutoEq の公開プリセットは 44.1 kHz）。SyncHz はどの再生サンプルレートでもこの特性を再現します。";
+"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "このプリセットが設計されたサンプルレート（AutoEq の公開プリセットは 44.1 kHz）。Hertzwise はどの再生サンプルレートでもこの特性を再現します。";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "%2$@ から %1$ld バンドを読み込みました（%3$ld 個の値を対応範囲に制限）。";
 
 /* EQ audio-input permission */
-"SyncHz needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "EQ を使うには音声入力へのアクセスが必要です。「システム設定 → プライバシーとセキュリティ → マイク」で SyncHz を許可してください。";
-"No audio from Apple Music is reaching the EQ." = "Apple Music の音声が EQ に届いていません。";
+"Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "EQ を使うには音声入力へのアクセスが必要です。「システム設定 → プライバシーとセキュリティ → マイク」で Hertzwise を許可してください。";
 
 /* Fixed EQ processing rate */
 "Resampled" = "リサンプリング";
+"Signal lost" = "信号なし";
 "EQ on — output held at %@" = "EQ オン — 出力を %@ に固定";
 "Turn the EQ off to change the sample rate." = "サンプルレートを変更するには EQ をオフにしてください。";
 "Processing rate" = "処理サンプルレート";
 "Follow track rate" = "曲のサンプルレートに追従";
 "Hold at %@" = "%@ に固定";
+
+"Tidal locked at %@" = "Tidal で %@ に確定";
+"Tidal is in exclusive mode; not switching" = "Tidal が排他モードのため切り替えません";
+"%@: log lost; not switching" = "%@：ログが途切れたため切り替えません";
+"%@: no sample rate; not switching" = "%@：サンプルレートが不明のため切り替えません";
+"Sources" = "ソース";
+"Control volume" = "音量を制御";
+"Use as output" = "出力に使用";
+"%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ は Mac の出力ではなく、自身の設定で %2$@ に再生しています";
+"Quit Hertzwise?" = "Hertzwise を終了しますか?";
+"%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ は Mac の音量を無視するため、Hertzwise が音量を適用しています。終了すると、そこで再生されるものはデバイスの最大音量になります。";
+"Cancel" = "キャンセル";
+"Don't ask again" = "今後確認しない";
+"%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ は %2$@ を再生できないため、%3$@ にリサンプリングして再生します。";
+"It is in console mode: unplug it and plug it back in without holding the volume buttons." = "コンソールモードになっています。音量ボタンを押さずに抜き差ししてください。";
+"Pause and Quit" = "一時停止して終了";
+"Playback didn't pause, so Hertzwise is still running." = "再生が一時停止しなかったため、Hertzwise は実行中のままです。";

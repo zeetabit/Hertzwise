@@ -1,5 +1,6 @@
-/* SyncHz — Spanish */
-"Equalizer on — Apple Music is no longer bit-perfect." = "Ecualizador activado — Apple Music ya no es bit-perfect.";
+/* Hertzwise — Spanish */
+"Equalizer on — the devices it processes are no longer bit-perfect." = "Ecualizador activado — los dispositivos que procesa ya no son bit-perfect.";
+"No connected device has Equalizer on. Turn it on for a device in the output device menu." = "Ningún dispositivo conectado tiene el ecualizador activado. Actívalo para un dispositivo en el menú del dispositivo de salida.";
 "No filters found in %1$@." = "No se encontraron filtros en %1$@.";
 "No bands. Add one, or import an AutoEQ ParametricEQ.txt." = "No hay bandas. Añade una o importa un ParametricEQ.txt de AutoEQ.";
 "Imported %1$ld bands from %2$@ (%3$ld unsupported filters skipped)." = "Se importaron %1$ld bandas de %2$@ (se omitieron %3$ld filtros no compatibles).";
@@ -36,6 +37,7 @@
 "Not playing" = "Sin reproducción";
 "Fitted at %@" = "Ajustado a %@";
 "Resampled" = "Remuestreado";
+"Signal lost" = "Señal perdida";
 "Dump now playing" = "Exportar datos de reproducción";
 "Follow track rate" = "Seguir frecuencia de la pista";
 "Imported %1$ld bands from %2$@." = "Se importaron %1$ld bandas de %2$@.";
@@ -61,14 +63,13 @@
 "Choose an AutoEQ ParametricEQ.txt file" = "Elige un archivo ParametricEQ.txt de AutoEQ";
 "Equalizer" = "Ecualizador";
 "Auto switch" = "Cambio automático";
-"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. SyncHz reproduces this response at every playback rate." = "La frecuencia de muestreo a la que se ajustó este preajuste: 44,1 kHz en los preajustes publicados de AutoEq. SyncHz reproduce esta respuesta a cualquier frecuencia de reproducción.";
+"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "La frecuencia de muestreo a la que se ajustó este preajuste: 44,1 kHz en los preajustes publicados de AutoEq. Hertzwise reproduce esta respuesta a cualquier frecuencia de reproducción.";
 "Update check failed: %@" = "Error al buscar actualizaciones: %@";
 "Follow System" = "Según el sistema";
 "Failed to switch output sample rate" = "No se pudo cambiar la frecuencia de muestreo de salida";
 "Output peak protected — lower boost or preamp" = "Pico de salida protegido — reduce la ganancia o el preamp";
 "Delete" = "Eliminar";
 "Dump recent logs" = "Exportar registros recientes";
-"No audio from Apple Music is reaching the EQ." = "No llega audio de Apple Music al EQ.";
 "Log parser" = "Analizador de registro";
 "Hi-Res Lossless" = "Sin pérdida de alta resolución";
 "New Profile" = "Nuevo perfil";
@@ -83,7 +84,7 @@
 "Source" = "Fuente";
 "Import AutoEQ…" = "Importar AutoEQ…";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "Se importaron %1$ld bandas de %2$@ (%3$ld valores limitados al rango admitido).";
-"SyncHz is up to date" = "SyncHz está actualizado";
+"Hertzwise is up to date" = "Hertzwise está actualizado";
 "Failed to switch output device" = "No se pudo cambiar el dispositivo de salida";
 "Log stream started" = "Flujo de registro iniciado";
 "Previous track" = "Pista anterior";
@@ -106,4 +107,21 @@
 "Log parser disabled" = "Analizador de registro desactivado";
 "Flat" = "Plano";
 "Equalizer active" = "Ecualizador activo";
-"SyncHz needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "SyncHz necesita acceso a la entrada de audio para usar el EQ. Permítelo en Ajustes del Sistema → Privacidad y seguridad → Micrófono.";
+"Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Hertzwise necesita acceso a la entrada de audio para usar el EQ. Permítelo en Ajustes del Sistema → Privacidad y seguridad → Micrófono.";
+
+"Tidal locked at %@" = "Tidal: fijado en %@";
+"Tidal is in exclusive mode; not switching" = "Tidal está en modo exclusivo; sin cambio";
+"%@: log lost; not switching" = "%@: registro perdido; sin cambio";
+"%@: no sample rate; not switching" = "%@: sin frecuencia de muestreo; sin cambio";
+"Sources" = "Fuentes";
+"Control volume" = "Controlar el volumen";
+"Use as output" = "Usar como salida";
+"%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ reproduce en %2$@ según sus propios ajustes, no la salida del Mac";
+"Quit Hertzwise?" = "¿Salir de Hertzwise?";
+"%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ ignora el volumen del Mac y Hertzwise lo aplica. Al salir, todo lo que suene allí sonará al volumen máximo del dispositivo.";
+"Cancel" = "Cancelar";
+"Don't ask again" = "No volver a preguntar";
+"%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ no puede reproducir %2$@, así que suena remuestreado a %3$@.";
+"It is in console mode: unplug it and plug it back in without holding the volume buttons." = "Está en modo consola: desconéctalo y vuelve a conectarlo sin mantener pulsados los botones de volumen.";
+"Pause and Quit" = "Pausar y salir";
+"Playback didn't pause, so Hertzwise is still running." = "La reproducción no se pausó, así que Hertzwise sigue abierto.";

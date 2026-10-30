@@ -10,8 +10,84 @@ struct OutputDeviceInfo {
 
 struct AudioOutputDevice: Identifiable, Hashable {
     let id: AudioDeviceID
+    let uid: String
     let name: String
     let iconName: String
+}
+
+/// A per-device on/off setting, by device UID. Unset, it is on only for
+/// the devices it names by UID prefix.
+struct DeviceSetting {
+    let key: String
+    let onByDefault: [String]
+
+    func isEnabled(uid: String) -> Bool {
+        stored[uid] ?? onByDefault.contains { uid.hasPrefix($0) }
+    }
+
+    func setEnabled(_ enabled: Bool, uid: String) {
+        var devices = stored
+        devices[uid] = enabled
+        UserDefaults.standard.set(devices, forKey: key)
+    }
+
+    private var stored: [String: Bool] {
+        UserDefaults.standard.dictionary(forKey: key) as? [String: Bool] ?? [:]
+    }
+}
+
+private let pawS1 = "AppleUSBAudioEngine:Lotoo:PAW-S1:"
+
+/// Per output device: whether Hertzwise applies the Mac's volume to the
+/// samples, for DACs that accept a volume from the Mac but ignore it.
+enum HostVolumeControl {
+    /// On for devices known to ignore the Mac's volume unless turned off.
+    private static let setting = DeviceSetting(key: "volumeControl.devices", onByDefault: [pawS1])
+    static let didChange = Notification.Name("io.github.zeetabit.hertzwise.hostVolumeControlDidChange")
+
+    static func isEnabled(uid: String) -> Bool {
+        setting.isEnabled(uid: uid)
+    }
+
+    static func setEnabled(_ enabled: Bool, uid: String) {
+        setting.setEnabled(enabled, uid: uid)
+        NotificationCenter.default.post(name: didChange, object: nil)
+    }
+
+    private static let volumesKey = "volumeControl.lastVolumes"
+
+    /// The device volume Hertzwise last applied, as a scalar.
+    static func rememberedVolume(uid: String) -> Float32? {
+        (UserDefaults.standard.dictionary(forKey: volumesKey)?[uid] as? NSNumber)?.floatValue
+    }
+
+    static func remember(volume: Float32, uid: String) {
+        var volumes = UserDefaults.standard.dictionary(forKey: volumesKey) ?? [:]
+        guard (volumes[uid] as? NSNumber)?.floatValue != volume else { return }
+        volumes[uid] = volume
+        UserDefaults.standard.set(volumes, forKey: volumesKey)
+    }
+}
+
+/// Why a device plays below its usual rates, and the fix, for devices known
+/// to have such a mode. Matched on the model UID's vendor and product IDs.
+enum DeviceRateLimitHint {
+    private static let hints: [(modelUIDSuffix: String, hint: String)] = [
+        // Lotoo PAW S1 in console mode (product ID 0x2015, plugged in holding
+        // both volume buttons): USB Audio 1.0, 48 kHz/16-bit only.
+        (":2016:2015", "It is in console mode: unplug it and plug it back in without holding the volume buttons."),
+    ]
+
+    static func hint(modelUID: String?) -> String? {
+        guard let modelUID else { return nil }
+        return hints.first { modelUID.uppercased().hasSuffix($0.modelUIDSuffix) }.map { L10n.string($0.hint) }
+    }
+}
+
+/// Per output device: whether the headphone EQ processes it while the EQ is
+/// on. EQ corrects headphones, so it belongs to the device they plug into.
+enum DeviceEQ {
+    static let setting = DeviceSetting(key: "eq.devices", onByDefault: [pawS1])
 }
 
 struct OutputVolumeInfo {
@@ -60,6 +136,8 @@ final class AudioDeviceController {
             .filter { hasOutputStreams(deviceID: $0) }
             .map { deviceID in
                 AudioOutputDevice(id: deviceID,
+                                  uid: stringProperty(objectID: deviceID,
+                                                      selector: kAudioDevicePropertyDeviceUID) ?? "",
                                   name: stringProperty(objectID: deviceID,
                                                        selector: kAudioObjectPropertyName) ?? "Unknown",
                                   iconName: transportIconName(deviceID: deviceID))
@@ -254,13 +332,73 @@ final class AudioDeviceController {
         }
     }
 
-    func setDefaultOutputSampleRate(_ sampleRate: Double) -> Bool {
-        guard let deviceID = defaultOutputDeviceID() else {
+    /// The rate actually set, or nil on failure.
+    func setDefaultOutputSampleRate(_ sampleRate: Double) -> Double? {
+        setOutputSampleRate(sampleRate, deviceUID: nil)
+    }
+
+    /// The rate the device would play `sampleRate` at: itself when supported,
+    /// otherwise the nearest it supports.
+    func playableSampleRate(_ sampleRate: Double, deviceUID: String?) -> Double? {
+        outputDeviceID(uid: deviceUID).flatMap { nearestSupportedSampleRate(sampleRate, deviceID: $0) }
+    }
+
+    /// Core Audio's model UID; for a USB device it ends in its vendor and
+    /// product IDs.
+    func modelUID(deviceUID: String?) -> String? {
+        guard let deviceID = outputDeviceID(uid: deviceUID) else { return nil }
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyModelUID,
+                                                 mScope: kAudioObjectPropertyScopeGlobal,
+                                                 mElement: kAudioObjectPropertyElementMain)
+        var value: CFString = "" as CFString
+        var size = UInt32(MemoryLayout<CFString>.size)
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &value) == noErr else { return nil }
+        return value as String
+    }
+
+    /// `deviceUID` nil means the system default output.
+    func nominalSampleRate(deviceUID: String?) -> Double? {
+        guard let deviceID = outputDeviceID(uid: deviceUID) else {
+            return nil
+        }
+        return doubleProperty(objectID: deviceID, selector: kAudioDevicePropertyNominalSampleRate)
+    }
+
+    /// True when another process holds the device exclusively (hog mode), as
+    /// a player in exclusive mode does. `deviceUID` nil means the system
+    /// default output.
+    func isHeldByAnotherProcess(deviceUID: String?) -> Bool {
+        guard let deviceID = outputDeviceID(uid: deviceUID) else {
             return false
         }
 
-        guard let targetRate = nearestSupportedSampleRate(sampleRate, deviceID: deviceID) else {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyHogMode,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        guard AudioObjectHasProperty(deviceID, &address) else {
             return false
+        }
+
+        var owner = pid_t(-1)
+        var size = UInt32(MemoryLayout<pid_t>.size)
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &owner) == noErr else {
+            return false
+        }
+        return owner != -1 && owner != getpid()
+    }
+
+    /// `deviceUID` nil means the system default output.
+    /// The rate actually set — the nearest supported one when `sampleRate`
+    /// isn't — or nil on failure.
+    func setOutputSampleRate(_ sampleRate: Double, deviceUID: String?) -> Double? {
+        guard let deviceID = outputDeviceID(uid: deviceUID) else {
+            return nil
+        }
+
+        guard let targetRate = nearestSupportedSampleRate(sampleRate, deviceID: deviceID) else {
+            return nil
         }
 
         var settable: DarwinBoolean = false
@@ -271,18 +409,47 @@ final class AudioDeviceController {
         )
 
         guard AudioObjectHasProperty(deviceID, &address) else {
-            return false
+            return nil
         }
 
         let status = AudioObjectIsPropertySettable(deviceID, &address, &settable)
         guard status == noErr, settable.boolValue else {
-            return false
+            return nil
         }
 
         var rate = targetRate
-        var size = UInt32(MemoryLayout<Double>.size)
+        let size = UInt32(MemoryLayout<Double>.size)
         let setStatus = AudioObjectSetPropertyData(deviceID, &address, 0, nil, size, &rate)
-        return setStatus == noErr
+        return setStatus == noErr ? targetRate : nil
+    }
+
+    private func outputDeviceID(uid: String?) -> AudioDeviceID? {
+        guard let uid else {
+            return defaultOutputDeviceID()
+        }
+
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyTranslateUIDToDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var cfUID = uid as CFString
+        var deviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = withUnsafeMutablePointer(to: &cfUID) { uidPointer in
+            AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),
+                                       &address,
+                                       UInt32(MemoryLayout<CFString>.size),
+                                       uidPointer,
+                                       &size,
+                                       &deviceID)
+        }
+        guard status == noErr, deviceID != kAudioObjectUnknown else {
+            return nil
+        }
+
+        return deviceID
     }
 
     private func defaultOutputDeviceID() -> AudioDeviceID? {
@@ -420,5 +587,112 @@ final class AudioDeviceController {
         }
 
         return closest
+    }
+}
+
+extension AudioDeviceController {
+    /// Calls `onChange` on the main queue when the default output device, the
+    /// device list, or the default device's rate or volume changes. Listening
+    /// stops when the returned observation is released.
+    func observeChanges(_ onChange: @escaping () -> Void) -> AudioDeviceObservation {
+        AudioDeviceObservation(
+            onChange: onChange,
+            currentDevice: { [weak self] in self?.defaultOutputDeviceID() },
+            deviceAddresses: { [weak self] deviceID in self?.observedAddresses(deviceID: deviceID) ?? [] }
+        )
+    }
+
+    private func observedAddresses(deviceID: AudioDeviceID) -> [AudioObjectPropertyAddress] {
+        var addresses = [kAudioDevicePropertyNominalSampleRate, kAudioDevicePropertyAvailableNominalSampleRates].map {
+            AudioObjectPropertyAddress(mSelector: $0,
+                                       mScope: kAudioObjectPropertyScopeGlobal,
+                                       mElement: kAudioObjectPropertyElementMain)
+        }
+        if let (selector, elements) = volumeAddress(deviceID: deviceID) {
+            addresses += elements.map {
+                AudioObjectPropertyAddress(mSelector: selector,
+                                           mScope: kAudioDevicePropertyScopeOutput,
+                                           mElement: $0)
+            }
+        }
+        return addresses
+    }
+}
+
+/// Core Audio listeners that replace polling the device state. A device switch
+/// fires several changes at once; they are coalesced into one `onChange`.
+final class AudioDeviceObservation {
+    private let onChange: () -> Void
+    private let currentDevice: () -> AudioDeviceID?
+    private let deviceAddresses: (AudioDeviceID) -> [AudioObjectPropertyAddress]
+    private var boundDevice: AudioDeviceID?
+    private var deviceRegistrations: [AudioObjectPropertyAddress] = []
+    private var systemRegistrations: [AudioObjectPropertyAddress] = []
+    private var changePending = false
+    /// One block for every registration: removal matches it by identity.
+    private lazy var listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+        self?.propertyChanged()
+    }
+
+    fileprivate init(onChange: @escaping () -> Void,
+                     currentDevice: @escaping () -> AudioDeviceID?,
+                     deviceAddresses: @escaping (AudioDeviceID) -> [AudioObjectPropertyAddress]) {
+        self.onChange = onChange
+        self.currentDevice = currentDevice
+        self.deviceAddresses = deviceAddresses
+
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        for selector in [kAudioHardwarePropertyDefaultOutputDevice, kAudioHardwarePropertyDevices] {
+            var address = AudioObjectPropertyAddress(mSelector: selector,
+                                                     mScope: kAudioObjectPropertyScopeGlobal,
+                                                     mElement: kAudioObjectPropertyElementMain)
+            if AudioObjectAddPropertyListenerBlock(system, &address, .main, listener) == noErr {
+                systemRegistrations.append(address)
+            }
+        }
+        bindCurrentDevice()
+    }
+
+    deinit {
+        unbindDevice()
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        for var address in systemRegistrations {
+            AudioObjectRemovePropertyListenerBlock(system, &address, .main, listener)
+        }
+    }
+
+    /// Runs on the main queue.
+    private func propertyChanged() {
+        if currentDevice() != boundDevice {
+            bindCurrentDevice()
+        }
+        guard !changePending else { return }
+        changePending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.changePending = false
+            self.onChange()
+        }
+    }
+
+    private func bindCurrentDevice() {
+        unbindDevice()
+        guard let deviceID = currentDevice() else { return }
+        boundDevice = deviceID
+        for var address in deviceAddresses(deviceID) {
+            if AudioObjectAddPropertyListenerBlock(deviceID, &address, .main, listener) == noErr {
+                deviceRegistrations.append(address)
+            }
+        }
+    }
+
+    private func unbindDevice() {
+        if let boundDevice {
+            for var address in deviceRegistrations {
+                AudioObjectRemovePropertyListenerBlock(boundDevice, &address, .main, listener)
+            }
+        }
+        deviceRegistrations = []
+        boundDevice = nil
     }
 }

@@ -54,7 +54,7 @@ private struct RateMark: View {
             RoundedRectangle(cornerRadius: corner, style: .continuous)
                 .strokeBorder(.white.opacity(0.10), lineWidth: 0.5)
         )
-        .accessibilityLabel(Text(verbatim: "SyncHz"))
+        .accessibilityLabel(Text(verbatim: "Hertzwise"))
     }
 }
 
@@ -93,7 +93,10 @@ struct PanelView: View {
         .foregroundStyle(Theme.textPrimary)
         .background(Theme.background.ignoresSafeArea())
         .background(WindowVisibilityReader(isVisible: $isOnScreen))
-        .onChange(of: isOnScreen, initial: true) { eq.setSpectrumVisible(isOnScreen && showEQ) }
+        .onChange(of: isOnScreen, initial: true) {
+            eq.setSpectrumVisible(isOnScreen && showEQ)
+            model.setPanelVisible(isOnScreen)
+        }
         .onChange(of: showEQ) { eq.setSpectrumVisible(isOnScreen && showEQ) }
         // Every `Text` below resolves its strings against this locale, so the
         // in-app language applies live; the EQ panel inherits it too.
@@ -156,11 +159,14 @@ private struct WindowVisibilityReader: NSViewRepresentable {
 // MARK: - Sync state
 
 private enum SyncState {
-    case inSync, switching, mismatch, detecting, standby, resampled
+    case inSync, switching, mismatch, detecting, standby, resampled, signalLost
 
     init(model: SampleRateModel) {
         let source = model.trackSampleRateDisplay
-        if OutputRateLock.shared.heldRate != nil {
+        if model.signalWarning != nil {
+            // The rates shown may be stale, so "In sync" would be a guess.
+            self = .signalLost
+        } else if OutputRateLock.shared.heldRate != nil {
             // The EQ holds the output at its own rate; Core Audio resamples.
             self = .resampled
         } else if source.contains("kHz") {
@@ -184,13 +190,14 @@ private enum SyncState {
         case .detecting: return "Detecting"
         case .standby: return "Standby"
         case .resampled: return "Resampled"
+        case .signalLost: return "Signal lost"
         }
     }
 
     var color: Color {
         switch self {
         case .inSync: return Theme.ok
-        case .switching, .mismatch, .detecting: return Theme.warn
+        case .switching, .mismatch, .detecting, .signalLost: return Theme.warn
         case .standby: return Theme.textMuted
         case .resampled: return Theme.accent
         }
@@ -209,13 +216,8 @@ private struct PanelHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             RateMark(size: 22)
-            Text(verbatim: "SyncHz")
+            Text(verbatim: "Hertzwise")
                 .font(.system(size: 13, weight: .semibold))
-            // The small tag beside the name: 調律 ("tuning"), the app's first
-            // name, in most languages; its Chinese name 同频 in Chinese.
-            Text("調律")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.textMuted)
 
             Spacer()
 
@@ -224,6 +226,10 @@ private struct PanelHeader: View {
             Menu {
                 Toggle("Auto switch", isOn: $model.autoSwitchEnabled)
                 Toggle("Log parser", isOn: $model.logParserEnabled)
+                Section("Sources") {
+                    Toggle(isOn: $model.tidalEnabled) { Text(verbatim: "Tidal") }
+                    Toggle(isOn: $model.appleMusicEnabled) { Text(verbatim: "Apple Music") }
+                }
                 Divider()
                 Button("Refresh now") { model.refreshNow() }
                 Button("Restart log parser") { model.restartLogParser() }
@@ -286,7 +292,7 @@ private struct PanelHeader: View {
         case .checking:
             Text("Checking for updates…")
         case .upToDate:
-            Text("SyncHz is up to date")
+            Text("Hertzwise is up to date")
         case let .failed(message):
             Text("Update check failed: \(message)")
         case .idle:
@@ -555,31 +561,62 @@ private struct NowPlayingCard: View {
             .buttonStyle(GhostButtonStyle(size: 28))
             .accessibilityLabel("Next track")
         }
+        .disabled(!model.canControlPlayback)
+        .opacity(model.canControlPlayback ? 1 : 0.4)
     }
 }
 
 /// The only view that reads the playback clock, so its 1 Hz ticks stay local.
 private struct PlaybackProgress: View {
     var model: SampleRateModel
+    /// The position under the pointer while dragging; the seek is sent once,
+    /// on release.
+    @State private var dragFraction: Double?
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(timeString(model.elapsedSeconds))
+            Text(timeString(shownElapsed))
                 .frame(minWidth: 30, alignment: .leading)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Theme.fill)
                     Capsule()
                         .fill(Theme.accent)
-                        .frame(width: max(0, geo.size.width * progress))
+                        .frame(width: max(0, geo.size.width * (dragFraction ?? progress)))
                 }
+                .frame(height: 3)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(seekGesture(width: geo.size.width), including: model.canSeek ? .all : .none)
             }
-            .frame(height: 3)
+            // Taller than the bar, so it is easy to hit.
+            .frame(height: 14)
             Text(timeString(model.durationSeconds))
                 .frame(minWidth: 30, alignment: .trailing)
         }
         .font(.system(size: 11).monospacedDigit())
         .foregroundStyle(Theme.textMuted)
+    }
+
+    private func seekGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                dragFraction = fraction(at: value.location.x, width: width)
+            }
+            .onEnded { value in
+                model.seek(toFraction: fraction(at: value.location.x, width: width))
+                dragFraction = nil
+            }
+    }
+
+    private func fraction(at x: CGFloat, width: CGFloat) -> Double {
+        guard width > 0 else { return 0 }
+        return min(max(Double(x / width), 0), 1)
+    }
+
+    private var shownElapsed: Double? {
+        guard let dragFraction, let duration = model.durationSeconds else { return model.elapsedSeconds }
+        return dragFraction * duration
     }
 
     private var progress: Double {
@@ -610,8 +647,19 @@ private struct OutputCard: View {
             HStack(spacing: 8) {
                 Menu {
                     ForEach(model.outputDevices) { device in
-                        Button {
-                            model.selectOutputDevice(device.id)
+                        Menu {
+                            Button("Use as output") { model.selectOutputDevice(device.id) }
+                                .disabled(device.id == model.currentOutputDeviceID)
+                            // For DACs that accept the Mac's volume but ignore
+                            // it: Hertzwise then applies it to the samples.
+                            Toggle("Control volume", isOn: Binding(
+                                get: { model.volumeControlledUIDs.contains(device.uid) },
+                                set: { model.setVolumeControl($0, for: device) }
+                            ))
+                            Toggle("Equalizer", isOn: Binding(
+                                get: { OutputPaths.shared.eqDeviceUIDs.contains(device.uid) },
+                                set: { OutputPaths.shared.setDeviceEQ($0, uid: device.uid) }
+                            ))
                         } label: {
                             if device.id == model.currentOutputDeviceID {
                                 Label(device.name, systemImage: "checkmark")
@@ -684,7 +732,8 @@ private struct FlatVolumeSlider: View {
     var isEnabled: Bool
     var onEditingChanged: (Bool) -> Void
 
-    @State private var isDragging = false
+    @State private var dragStartValue: Double?
+    private var isDragging: Bool { dragStartValue != nil }
 
     var body: some View {
         GeometryReader { geo in
@@ -704,16 +753,19 @@ private struct FlatVolumeSlider: View {
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .gesture(
-                DragGesture(minimumDistance: 0)
+                // Relative, so a click on the track never jumps to full
+                // volume: with IEMs that is a hearing risk.
+                DragGesture(minimumDistance: 2)
                     .onChanged { gesture in
-                        if !isDragging {
-                            isDragging = true
+                        let start = dragStartValue ?? value
+                        if dragStartValue == nil {
+                            dragStartValue = start
                             onEditingChanged(true)
                         }
-                        value = min(max((gesture.location.x - knob / 2) / (width - knob), 0), 1)
+                        value = min(max(start + gesture.translation.width / (width - knob), 0), 1)
                     }
                     .onEnded { _ in
-                        isDragging = false
+                        dragStartValue = nil
                         onEditingChanged(false)
                     }
             )
@@ -740,21 +792,29 @@ private struct StatusFooter: View {
     var model: SampleRateModel
 
     var body: some View {
-        let lines = [model.statusMessage, model.logStatusMessage].filter { !$0.isEmpty }
+        let warning = model.signalWarning
+        let lines = [model.statusMessage, model.outputNotice ?? "", model.rateLimitNotice ?? "",
+                     warning ?? model.logStatusMessage].filter { !$0.isEmpty }
+        let warns = warning != nil || model.outputNotice != nil || model.rateLimitNotice != nil
         if !lines.isEmpty {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Circle()
-                    .fill(SyncState(model: model).color)
+                    .fill(warns ? Theme.warn : SyncState(model: model).color)
                     .frame(width: 6, height: 6)
                     .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
                 VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(lines.enumerated()), id: \.offset) { Text(verbatim: $0.element).lineLimit(1) }
+                    ForEach(Array(lines.enumerated()), id: \.offset) {
+                        Text(verbatim: $0.element).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
             .font(.system(size: 11))
-            .foregroundStyle(Theme.textMuted)
+            .foregroundStyle(warns ? Theme.textPrimary : Theme.textMuted)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 2)
+            .padding(.horizontal, warns ? 8 : 2)
+            .padding(.vertical, warns ? 5 : 0)
+            .background(warns ? Theme.warn.opacity(0.18) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: Theme.controlRadius))
         }
     }
 }

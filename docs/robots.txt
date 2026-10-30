@@ -1,4 +1,0 @@
-User-agent: *
-Allow: /
-
-Sitemap: https://jcongaku.github.io/SyncHz/sitemap.xml

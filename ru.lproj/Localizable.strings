@@ -1,5 +1,6 @@
-/* SyncHz — Russian */
-"Equalizer on — Apple Music is no longer bit-perfect." = "Эквалайзер включён — Apple Music больше не bit-perfect.";
+/* Hertzwise — Russian */
+"Equalizer on — the devices it processes are no longer bit-perfect." = "Эквалайзер включён — обрабатываемые им устройства больше не bit-perfect.";
+"No connected device has Equalizer on. Turn it on for a device in the output device menu." = "Ни на одном подключённом устройстве эквалайзер не включён. Включите его для устройства в меню устройства вывода.";
 "No filters found in %1$@." = "В %1$@ не найдено фильтров.";
 "No bands. Add one, or import an AutoEQ ParametricEQ.txt." = "Нет полос. Добавьте полосу или импортируйте ParametricEQ.txt из AutoEQ.";
 "Imported %1$ld bands from %2$@ (%3$ld unsupported filters skipped)." = "Импортировано полос из %2$@: %1$ld (пропущено неподдерживаемых фильтров: %3$ld).";
@@ -36,6 +37,7 @@
 "Not playing" = "Не воспроизводится";
 "Fitted at %@" = "Расчёт: %@";
 "Resampled" = "Ресемплинг";
+"Signal lost" = "Сигнал потерян";
 "Dump now playing" = "Выгрузить данные о текущем треке";
 "Follow track rate" = "Следовать частоте трека";
 "Imported %1$ld bands from %2$@." = "Импортировано полос из %2$@: %1$ld.";
@@ -61,14 +63,13 @@
 "Choose an AutoEQ ParametricEQ.txt file" = "Выберите файл ParametricEQ.txt из AutoEQ";
 "Equalizer" = "Эквалайзер";
 "Auto switch" = "Автопереключение";
-"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. SyncHz reproduces this response at every playback rate." = "Частота дискретизации, на которую рассчитан этот пресет (44.1 kHz для опубликованных пресетов AutoEq). SyncHz точно повторяет эту АЧХ на любой частоте воспроизведения.";
+"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "Частота дискретизации, на которую рассчитан этот пресет (44.1 kHz для опубликованных пресетов AutoEq). Hertzwise точно повторяет эту АЧХ на любой частоте воспроизведения.";
 "Update check failed: %@" = "Ошибка проверки обновлений: %@";
 "Follow System" = "Как в системе";
 "Failed to switch output sample rate" = "Не удалось переключить частоту выхода";
 "Output peak protected — lower boost or preamp" = "Пик на выходе ограничен — уменьшите подъём или предусилитель";
 "Delete" = "Удалить";
 "Dump recent logs" = "Выгрузить недавние журналы";
-"No audio from Apple Music is reaching the EQ." = "Звук из Apple Music не поступает в EQ.";
 "Log parser" = "Анализ журнала";
 "Hi-Res Lossless" = "Hi-Res без потерь";
 "New Profile" = "Новый профиль";
@@ -83,7 +84,7 @@
 "Source" = "Источник";
 "Import AutoEQ…" = "Импорт AutoEQ…";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "Импортировано полос из %2$@: %1$ld (значений, ограниченных допустимым диапазоном: %3$ld).";
-"SyncHz is up to date" = "Установлена последняя версия SyncHz";
+"Hertzwise is up to date" = "Установлена последняя версия Hertzwise";
 "Failed to switch output device" = "Не удалось переключить устройство вывода";
 "Log stream started" = "Поток журнала запущен";
 "Previous track" = "Предыдущий трек";
@@ -106,4 +107,21 @@
 "Log parser disabled" = "Анализ журнала выключен";
 "Flat" = "Ровная АЧХ";
 "Equalizer active" = "Эквалайзер работает";
-"SyncHz needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Для работы EQ приложению SyncHz нужен доступ к аудиовходу. Разрешите его в разделе «Системные настройки → Конфиденциальность и безопасность → Микрофон».";
+"Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Для работы EQ приложению Hertzwise нужен доступ к аудиовходу. Разрешите его в разделе «Системные настройки → Конфиденциальность и безопасность → Микрофон».";
+
+"Tidal locked at %@" = "Tidal: зафиксировано %@";
+"Tidal is in exclusive mode; not switching" = "Tidal в эксклюзивном режиме, переключение пропущено";
+"%@: log lost; not switching" = "%@: журнал потерян, переключение пропущено";
+"%@: no sample rate; not switching" = "%@: частота дискретизации неизвестна, переключение пропущено";
+"Sources" = "Источники";
+"Control volume" = "Управлять громкостью";
+"Use as output" = "Использовать для вывода";
+"%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ играет на %2$@ по своим настройкам, а не через выход Mac";
+"Quit Hertzwise?" = "Завершить Hertzwise?";
+"%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ игнорирует громкость Mac, и её применяет Hertzwise. После выхода всё, что там играет, будет звучать на полной громкости устройства.";
+"Cancel" = "Отменить";
+"Don't ask again" = "Больше не спрашивать";
+"%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ не умеет %2$@, поэтому звук передискретизируется в %3$@.";
+"It is in console mode: unplug it and plug it back in without holding the volume buttons." = "Устройство в режиме консоли: отключите его и подключите снова, не удерживая кнопки громкости.";
+"Pause and Quit" = "Пауза и выход";
+"Playback didn't pause, so Hertzwise is still running." = "Воспроизведение не приостановилось, поэтому Hertzwise продолжает работать.";

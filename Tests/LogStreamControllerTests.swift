@@ -62,6 +62,31 @@ final class LogStreamControllerTests: XCTestCase {
         }
     }
 
+    /// As Music logged it for a 48 kHz AAC radio stream on 2026-10-30.
+    func testCoreAudioConverterLineGivesTheSourceRate() {
+        let line = #"{"eventMessage":"AudioConverter.cpp:1077 Created a new in process converter -> 0x7834e5f80, from 2 ch, 48000 Hz, aach (0x00000000) 0 bits/channel, 0 bytes/packet, 2048 frames/packet, 0 bytes/frame, 0 channels/frame to 2 ch, 48000 Hz, Float32, deinterleaved"}"#
+        XCTAssertEqual(sampleRates(from: [line]), [48000])
+    }
+
+    /// Its input is already decoded, so it states the device's rate, not the source's.
+    func testDeviceSideConverterLineIsIgnored() {
+        let line = #"{"eventMessage":"AudioConverter.cpp:1077 Created a new in process converter -> 0x7820a9980, from 2 ch, 44100 Hz, Float32, deinterleaved to 2 ch, 44100 Hz, Float32, interleaved"}"#
+        XCTAssertEqual(sampleRates(from: [line]), [])
+    }
+
+    /// `log show` lines also carry the format string, whose "from %s%s to"
+    /// must not count as a decoded input.
+    func testCatchUpPicksTheLatestDecoderLine() {
+        func line(_ message: String) -> String {
+            #"{"formatString":"%25s:%-5d Created a new %s converter -> %p, from %s%s to %s%s","eventMessage":"\#(message)"}"#
+        }
+        let decoder = line("AudioConverter.cpp:1077  Created a new in process converter -> 0x1, from  2 ch,  48000 Hz, aach (0x00000000) 0 bits/channel to  2 ch,  48000 Hz, Float32, deinterleaved")
+        let device = line("AudioConverter.cpp:1077  Created a new in process converter -> 0x2, from  2 ch,  44100 Hz, Float32, deinterleaved to  2 ch,  44100 Hz, Float32, interleaved")
+        let summary = #"{"count":2,"finished":1}"#
+        XCTAssertEqual(LogStreamController.latestSourceRateLine(in: [decoder, device, summary]), decoder)
+        XCTAssertNil(LogStreamController.latestSourceRateLine(in: [device, summary]))
+    }
+
     func testPlainTextAudioMessagesRemainSupported() {
         XCTAssertEqual(sampleRates(from: [
             "sample rate = 48000",
@@ -119,5 +144,65 @@ final class LogStreamControllerTests: XCTestCase {
             controller.handleLogLine(line)
         }
         return rates
+    }
+}
+
+final class ChildLifelineTests: XCTestCase {
+    /// Starts a command that prints its pid and then becomes a 30 s sleep.
+    private func launch() throws -> (process: Process, lifeline: FileHandle, childPID: pid_t) {
+        let process = Process()
+        let lifeline = ChildLifeline.attach(to: process, command: ["/bin/sh", "-c", "echo $$; exec /bin/sleep 30"])
+        let output = Pipe()
+        process.standardOutput = output
+        try process.run()
+
+        var text = ""
+        let deadline = Date().addingTimeInterval(3)
+        while !text.contains("\n"), Date() < deadline {
+            text += String(decoding: output.fileHandleForReading.availableData, as: UTF8.self)
+        }
+        let pid = try XCTUnwrap(pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)))
+        XCTAssertTrue(isAlive(pid))
+        return (process, lifeline, pid)
+    }
+
+    private func isAlive(_ pid: pid_t) -> Bool {
+        kill(pid, 0) == 0
+    }
+
+    private func waitUntilGone(_ pid: pid_t, file: StaticString = #filePath, line: UInt = #line) {
+        let deadline = Date().addingTimeInterval(3)
+        while isAlive(pid), Date() < deadline {
+            usleep(20_000)
+        }
+        XCTAssertFalse(isAlive(pid), "child \(pid) outlived its lifeline", file: file, line: line)
+    }
+
+    /// What the kernel does when the app dies, however it dies.
+    func testClosingTheLifelineStopsTheCommand() throws {
+        let launched = try launch()
+        try launched.lifeline.close()
+        waitUntilGone(launched.childPID)
+        launched.process.waitUntilExit()
+    }
+
+    /// A deliberate stop: `Process.terminate()` sends SIGTERM to the shell.
+    func testTerminatingTheShellStopsTheCommand() throws {
+        let launched = try launch()
+        launched.process.terminate()
+        waitUntilGone(launched.childPID)
+        launched.process.waitUntilExit()
+        try launched.lifeline.close()
+    }
+
+    /// A command that ends on its own ends the shell with its status, so the
+    /// restart logic still sees the exit.
+    func testCommandExitEndsTheShellWithItsStatus() throws {
+        let process = Process()
+        let lifeline = ChildLifeline.attach(to: process, command: ["/bin/sh", "-c", "exit 7"])
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 7)
+        try lifeline.close()
     }
 }

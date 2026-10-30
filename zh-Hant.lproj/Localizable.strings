@@ -21,7 +21,8 @@
 "Drag a point: frequency × gain · Scroll: Q" = "拖曳圓點：頻率 × 增益 · 捲動：Q";
 "Drag: frequency × gain · Hover point + scroll: Q · Shift: fine" = "拖曳：頻率 × 增益 · 懸停圓點並捲動：Q · Shift：微調";
 "Choose an AutoEQ ParametricEQ.txt file" = "選擇一個 AutoEQ ParametricEQ.txt 檔案";
-"Equalizer on — Apple Music is no longer bit-perfect." = "等化器已開啟 — Apple Music 不再是 bit-perfect。";
+"Equalizer on — the devices it processes are no longer bit-perfect." = "等化器已開啟 — 它處理的裝置不再是 bit-perfect。";
+"No connected device has Equalizer on. Turn it on for a device in the output device menu." = "沒有已連接的裝置開啟等化器。請在輸出裝置選單中為裝置開啟。";
 "Equalizer off — bit-perfect playback restored." = "等化器已關閉 — 已恢復 bit-perfect 播放。";
 "Couldn't start the EQ engine." = "無法啟動等化器引擎。";
 "Imported %1$ld bands from %2$@." = "已從 %2$@ 匯入 %1$ld 個頻段。";
@@ -55,7 +56,7 @@
 "Parametric EQ" = "參數等化器";
 "Update available — %@" = "有可用更新 — %@";
 "Checking for updates…" = "正在檢查更新…";
-"SyncHz is up to date" = "SyncHz 已是最新版本";
+"Hertzwise is up to date" = "Hertzwise 已是最新版本";
 "Update check failed: %@" = "檢查更新失敗：%@";
 "Check for Updates…" = "檢查更新…";
 "EQ is on — playback is no longer bit-perfect" = "等化器已開啟 — 播放不再是 bit-perfect";
@@ -103,15 +104,15 @@
 "Fitted at" = "擬合取樣率";
 "Fitted at %@" = "擬合於 %@";
 "Playback sample rate" = "播放取樣率";
-"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. SyncHz reproduces this response at every playback rate." = "此預設擬合時使用的取樣率——AutoEq 公開的預設為 44.1 kHz。SyncHz 會在任何播放取樣率下還原這一響應。";
+"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "此預設擬合時使用的取樣率——AutoEq 公開的預設為 44.1 kHz。Hertzwise 會在任何播放取樣率下還原這一響應。";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "已從 %2$@ 匯入 %1$ld 個頻段（%3$ld 個數值被限制在支援範圍內）。";
 
 /* EQ audio-input permission */
-"SyncHz needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "SyncHz 需要音訊輸入權限才能執行等化器。請在「系統設定 → 隱私權與安全性 → 麥克風」中允許。";
-"No audio from Apple Music is reaching the EQ." = "沒有來自 Apple Music 的音訊進入等化器。";
+"Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Hertzwise 需要音訊輸入權限才能執行等化器。請在「系統設定 → 隱私權與安全性 → 麥克風」中允許。";
 
 /* Fixed EQ processing rate */
 "Resampled" = "重新取樣";
+"Signal lost" = "訊號遺失";
 "EQ on — output held at %@" = "等化器已開啟 — 輸出固定在 %@";
 "Turn the EQ off to change the sample rate." = "關閉等化器後才能變更取樣率。";
 "Processing rate" = "處理取樣率";
@@ -119,4 +120,20 @@
 "Hold at %@" = "固定在 %@";
 
 /* Header tag: the app's Chinese name */
-"調律" = "同頻";
+
+"Tidal locked at %@" = "Tidal 已鎖定 %@";
+"Tidal is in exclusive mode; not switching" = "Tidal 處於獨佔模式，不切換";
+"%@: log lost; not switching" = "%@：日誌遺失，不切換";
+"%@: no sample rate; not switching" = "%@：無取樣率，不切換";
+"Sources" = "來源";
+"Control volume" = "控制音量";
+"Use as output" = "用作輸出";
+"%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ 依自身設定在 %2$@ 上播放，而非 Mac 的輸出";
+"Quit Hertzwise?" = "要結束 Hertzwise 嗎？";
+"%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ 會忽略 Mac 的音量，由 Hertzwise 套用音量。結束後，在該裝置上播放的內容將以裝置的最大音量播放。";
+"Cancel" = "取消";
+"Don't ask again" = "不再詢問";
+"%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ 無法播放 %2$@，因此以 %3$@ 重新取樣播放。";
+"It is in console mode: unplug it and plug it back in without holding the volume buttons." = "它處於主控台模式：請拔下後重新插入，插入時不要按住音量鍵。";
+"Pause and Quit" = "暫停並結束";
+"Playback didn't pause, so Hertzwise is still running." = "播放未暫停，因此 Hertzwise 仍在執行。";

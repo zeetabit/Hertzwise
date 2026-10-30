@@ -15,6 +15,7 @@ struct TrackFetchResult {
 }
 
 enum MusicCommand: String {
+    case pause
     case playPause = "playpause"
     case nextTrack = "next track"
     case previousTrack = "back track"
@@ -35,7 +36,7 @@ enum MusicCommand: String {
 /// `NSAppleScript` is not thread-safe, but each script is created and used
 /// entirely within a single block on that one serial queue and is never shared.
 final class MusicController {
-    private let scriptQueue = DispatchQueue(label: "com.garykong.choritsu.applescript")
+    private let scriptQueue = DispatchQueue(label: "io.github.zeetabit.hertzwise.applescript")
 
     /// Kept short on purpose. This is a fallback path — MediaRemote is the
     /// primary source of track metadata — so a slow reply is worse than a

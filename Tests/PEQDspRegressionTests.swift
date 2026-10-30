@@ -61,6 +61,26 @@ final class PEQDspRegressionTests: XCTestCase {
         XCTAssertLessThanOrEqual(peak, 0.90)
     }
 
+    func testBypassIsReportedOnlyAfterTheFadeToDry() {
+        let processor = BiquadProcessor()
+        let band = PEQBand(type: .peak, frequency: 1_000, gainDB: 6, q: 1)
+        processor.setSections([BiquadCoefficients(band: band, sampleRate: sampleRate)],
+                              preampDB: -6,
+                              sampleRate: sampleRate)
+        let silence = [Float](repeating: 0, count: 256)
+        XCTAssertTrue(processor.isBypassed())
+
+        processor.setActive(true)
+        XCTAssertFalse(processor.isBypassed())
+        _ = render(processor, silence, channels: 2)
+        XCTAssertFalse(processor.isBypassed())
+
+        processor.setActive(false)
+        XCTAssertFalse(processor.isBypassed(), "still fading to dry")
+        _ = render(processor, silence, channels: 2)
+        XCTAssertTrue(processor.isBypassed())
+    }
+
     func testRapidUpdatesRemainFiniteAndUseLatestConfiguration() {
         let processor = BiquadProcessor()
         processor.setActive(true)

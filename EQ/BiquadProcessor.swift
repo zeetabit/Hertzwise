@@ -168,6 +168,13 @@ final class BiquadProcessor {
 
     // MARK: Audio render thread
 
+    /// True once bypass is requested and the fade to dry has finished: the
+    /// caller may then copy its input instead of calling the processor.
+    func isBypassed() -> Bool {
+        requestedWet.load(ordering: .acquiring) == 0 && wetRampTarget == 0
+            && (wetMix == 0 || wetRampPosition >= wetRampFrames)
+    }
+
     /// Call once per render cycle, before `process` for each channel.
     func beginRender(frameCount: Int) {
         renderClipped = false
