@@ -2,7 +2,7 @@ import AppKit
 import SwiftUI
 import ImageIO
 
-// Renders the Hertzwise app icon and the README / site artwork.
+// Renders the Hertzwise app icon and the README artwork.
 //
 // The mark is a level dial: a knob carrying one sine cycle (the sample rate
 // the app follows), ringed by level ticks lit up to its pointer (the volume
@@ -12,10 +12,8 @@ import ImageIO
 //   AppIcon.icon/Assets/ticks.png, knob.png, wave.png   Icon Composer layers
 //   branding/icon_1024.png                       masked squircle + shadow (README)
 //   branding/banner-light.png, banner-dark.png   README header (icon + wordmark)
-//   docs/icon.png, favicon.png, apple-touch-icon.png
-//   docs/social.png                              1280×640 link preview (Open Graph,
-//                                                GitHub social preview); needs
-//                                                docs/screenshots/panel-dark.png
+//   branding/social.png                          1280×640 GitHub social preview;
+//                                                needs branding/screenshots/panel-dark.png
 // Run from the repo root: swift branding/render_icon.swift
 
 let canvas: CGFloat = 1024
@@ -165,25 +163,6 @@ func renderIcon() -> CGImage {
     return ctx.makeImage()!
 }
 
-/// Full-bleed square (no mask, no shadow) for apple-touch-icon.
-func renderFullBleed() -> CGImage {
-    let ctx = makeContext(canvas, canvas)
-    let gradient = CGGradient(colorsSpace: space, colors: [sumiTop, sumiBottom] as CFArray, locations: [0, 1])!
-    ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: canvas), end: .zero, options: [])
-    ctx.translateBy(x: 512, y: 512)
-    ctx.scaleBy(x: 1.18, y: 1.18)
-    ctx.translateBy(x: -512, y: -512)
-    drawMark(ctx)
-    return ctx.makeImage()!
-}
-
-func scaled(_ image: CGImage, to side: CGFloat) -> CGImage {
-    let ctx = makeContext(side, side)
-    ctx.interpolationQuality = .high
-    ctx.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
-    return ctx.makeImage()!
-}
-
 // MARK: - README banner: icon, wordmark, tagline
 
 func renderBanner(dark: Bool, icon: CGImage) -> CGImage {
@@ -260,11 +239,8 @@ save(renderLayer(drawTicks), to: "AppIcon.icon/Assets/ticks.png")
 save(renderLayer(drawKnob), to: "AppIcon.icon/Assets/knob.png")
 save(renderLayer(drawWave), to: "AppIcon.icon/Assets/wave.png")
 
-save(scaled(icon, to: 512), to: "docs/icon.png")
-save(scaled(icon, to: 64), to: "docs/favicon.png")
-save(scaled(renderFullBleed(), to: 180), to: "docs/apple-touch-icon.png")
 
-if let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: "docs/screenshots/panel-dark.png") as CFURL, nil),
+if let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: "branding/screenshots/panel-dark.png") as CFURL, nil),
    let screenshot = CGImageSourceCreateImageAtIndex(source, 0, nil) {
-    save(renderSocial(icon: icon, screenshot: screenshot), to: "docs/social.png")
+    save(renderSocial(icon: icon, screenshot: screenshot), to: "branding/social.png")
 }
