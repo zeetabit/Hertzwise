@@ -24,6 +24,7 @@ final class NowPlayingAdapter {
 
     /// The MediaRemote command IDs the adapter's `send` takes.
     enum Command: Int {
+        case pause = 1
         case togglePlayPause = 2
         case nextTrack = 4
         case previousTrack = 5

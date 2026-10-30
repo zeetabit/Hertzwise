@@ -89,6 +89,7 @@ final class SampleRateModel {
     @ObservationIgnored private var playbackDevices: [String: Set<AudioObjectID>] = [:]
     @ObservationIgnored private var arbiter = SourceArbiter()
     @ObservationIgnored private var appObservers: [NSObjectProtocol] = []
+    @ObservationIgnored private var pauseObserver: NSObjectProtocol?
     /// Tidal's rate, kept apart from Music's `stableLogSampleRate` so that one
     /// player's track change never clears the other's lock.
     @ObservationIgnored private var tidalLockedRate: Double?
@@ -192,6 +193,13 @@ final class SampleRateModel {
         elapsedSeconds = seconds
     }
 
+    /// Posted to pause whatever plays, before quitting.
+    static let pauseRequest = Notification.Name("io.github.zeetabit.hertzwise.pauseRequest")
+
+    func pausePlayback() {
+        sendTransport(.pause, fallback: .pause)
+    }
+
     private func sendTransport(_ command: NowPlayingAdapter.Command, fallback: MusicCommand) {
         if nowPlayingAdapter.isAvailable {
             nowPlayingAdapter.send(command)
@@ -293,6 +301,9 @@ final class SampleRateModel {
                       self.logParserEnabled else { return }
                 self.startLogParser()
             })
+        }
+        pauseObserver = NotificationCenter.default.addObserver(forName: Self.pauseRequest, object: nil, queue: .main) { [weak self] _ in
+            self?.pausePlayback()
         }
         updateState()
         deviceObservation = audioController.observeChanges { [weak self] in

@@ -135,3 +135,5 @@
 "Don't ask again" = "不再询问";
 "%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ 无法播放 %2$@，因此以 %3$@ 重采样播放。";
 "It is in console mode: unplug it and plug it back in without holding the volume buttons." = "它处于控制台模式：请拔下后重新插入，插入时不要按住音量键。";
+"Pause and Quit" = "暂停并退出";
+"Playback didn't pause, so Hertzwise is still running." = "播放未暂停，因此 Hertzwise 仍在运行。";

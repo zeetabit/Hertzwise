@@ -94,6 +94,18 @@ final class AudioProcessMonitor {
         return result
     }
 
+    /// Whether any process other than this one is outputting to `devices`.
+    static func isOtherProcessOutputting(to devices: Set<AudioObjectID>) -> Bool {
+        let ownBundleID = Bundle.main.bundleIdentifier
+        return processObjects().contains { process in
+            var running = UInt32(0)
+            var size = UInt32(MemoryLayout<UInt32>.size)
+            guard AudioObjectGetPropertyData(process, &runningOutputAddress, 0, nil, &size, &running) == noErr,
+                  running != 0, bundleID(of: process) != ownBundleID else { return false }
+            return !devices.isDisjoint(with: Self.devices(of: process))
+        }
+    }
+
     private static func devices(of process: AudioObjectID) -> [AudioObjectID] {
         var size = UInt32(0)
         guard AudioObjectGetPropertyDataSize(process, &devicesAddress, 0, nil, &size) == noErr, size > 0 else {

@@ -133,3 +133,5 @@
 "Don't ask again" = "今後確認しない";
 "%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ は %2$@ を再生できないため、%3$@ にリサンプリングして再生します。";
 "It is in console mode: unplug it and plug it back in without holding the volume buttons." = "コンソールモードになっています。音量ボタンを押さずに抜き差ししてください。";
+"Pause and Quit" = "一時停止して終了";
+"Playback didn't pause, so Hertzwise is still running." = "再生が一時停止しなかったため、Hertzwise は実行中のままです。";

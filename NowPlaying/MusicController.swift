@@ -15,6 +15,7 @@ struct TrackFetchResult {
 }
 
 enum MusicCommand: String {
+    case pause
     case playPause = "playpause"
     case nextTrack = "next track"
     case previousTrack = "back track"

@@ -123,3 +123,5 @@
 "Don't ask again" = "Niet meer vragen";
 "%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ kan %2$@ niet afspelen en speelt daarom herbemonsterd op %3$@.";
 "It is in console mode: unplug it and plug it back in without holding the volume buttons." = "Het staat in consolemodus: koppel het los en sluit het opnieuw aan zonder de volumeknoppen ingedrukt te houden.";
+"Pause and Quit" = "Pauzeer en stop";
+"Playback didn't pause, so Hertzwise is still running." = "Het afspelen is niet gepauzeerd, dus Hertzwise blijft actief.";

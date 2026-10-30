@@ -123,3 +123,5 @@
 "Don't ask again" = "다시 묻지 않기";
 "%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@은(는) %2$@을(를) 재생할 수 없어 %3$@(으)로 리샘플링해 재생합니다.";
 "It is in console mode: unplug it and plug it back in without holding the volume buttons." = "콘솔 모드입니다. 볼륨 버튼을 누르지 않은 채로 뽑았다가 다시 연결하세요.";
+"Pause and Quit" = "일시 정지 후 종료";
+"Playback didn't pause, so Hertzwise is still running." = "재생이 일시 정지되지 않아 Hertzwise가 계속 실행 중입니다.";

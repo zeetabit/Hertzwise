@@ -123,3 +123,5 @@
 "Don't ask again" = "Não perguntar novamente";
 "%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ não reproduz %2$@, então toca reamostrado a %3$@.";
 "It is in console mode: unplug it and plug it back in without holding the volume buttons." = "Está no modo console: desconecte e conecte de novo sem segurar os botões de volume.";
+"Pause and Quit" = "Pausar e encerrar";
+"Playback didn't pause, so Hertzwise is still running." = "A reprodução não pausou, então o Hertzwise continua aberto.";

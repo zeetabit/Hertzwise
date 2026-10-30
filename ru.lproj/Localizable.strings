@@ -123,3 +123,5 @@
 "Don't ask again" = "Больше не спрашивать";
 "%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ не умеет %2$@, поэтому звук передискретизируется в %3$@.";
 "It is in console mode: unplug it and plug it back in without holding the volume buttons." = "Устройство в режиме консоли: отключите его и подключите снова, не удерживая кнопки громкости.";
+"Pause and Quit" = "Пауза и выход";
+"Playback didn't pause, so Hertzwise is still running." = "Воспроизведение не приостановилось, поэтому Hertzwise продолжает работать.";
