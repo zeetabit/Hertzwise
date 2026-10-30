@@ -346,14 +346,7 @@ final class AudioDeviceController {
     /// Core Audio's model UID; for a USB device it ends in its vendor and
     /// product IDs.
     func modelUID(deviceUID: String?) -> String? {
-        guard let deviceID = outputDeviceID(uid: deviceUID) else { return nil }
-        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyModelUID,
-                                                 mScope: kAudioObjectPropertyScopeGlobal,
-                                                 mElement: kAudioObjectPropertyElementMain)
-        var value: CFString = "" as CFString
-        var size = UInt32(MemoryLayout<CFString>.size)
-        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &value) == noErr else { return nil }
-        return value as String
+        outputDeviceID(uid: deviceUID).flatMap { stringProperty(objectID: $0, selector: kAudioDevicePropertyModelUID) }
     }
 
     /// `deviceUID` nil means the system default output.
@@ -486,18 +479,15 @@ final class AudioDeviceController {
             return nil
         }
 
-        var size: UInt32 = 0
-        guard AudioObjectGetPropertyDataSize(objectID, &address, 0, nil, &size) == noErr else {
+        // Core Audio returns the string retained: take it as such.
+        var value: Unmanaged<CFString>?
+        var size = UInt32(MemoryLayout<Unmanaged<CFString>?>.size)
+        let status = AudioObjectGetPropertyData(objectID, &address, 0, nil, &size, &value)
+        guard status == noErr, let value else {
             return nil
         }
 
-        var cfString: CFString?
-        let status = AudioObjectGetPropertyData(objectID, &address, 0, nil, &size, &cfString)
-        guard status == noErr else {
-            return nil
-        }
-
-        return cfString as String?
+        return value.takeRetainedValue() as String
     }
 
     private func uint32Property(objectID: AudioObjectID,
