@@ -60,6 +60,9 @@ final class LogStreamController {
     /// parsing, so another source can reuse the process handling. Called on a
     /// private queue.
     var onLine: ((String) -> Void)?
+    /// When set, runs this command instead of `log stream`, with the same
+    /// restarts and lifeline; pair it with `onLine`.
+    var command: [String]?
 
     /// Deliberately narrow. Matching `CONTAINS[c] "audio"` and
     /// `CONTAINS[c] "format"` turned this into a firehose — Music.app alone
@@ -108,7 +111,7 @@ final class LogStreamController {
     /// Must be called on `queue`.
     private func launchStream() {
         let proc = Process()
-        let lifeline = ChildLifeline.attach(to: proc, command: [
+        let lifeline = ChildLifeline.attach(to: proc, command: command ?? [
             "/usr/bin/log", "stream",
             // `ndjson` emits one compact JSON object per line. `json` emits
             // pretty-printed multi-line objects, which cannot be framed by

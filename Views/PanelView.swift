@@ -557,9 +557,8 @@ private struct NowPlayingCard: View {
             .buttonStyle(GhostButtonStyle(size: 28))
             .accessibilityLabel("Next track")
         }
-        // The buttons drive Apple Music through AppleScript.
-        .disabled(!model.appleMusicEnabled)
-        .opacity(model.appleMusicEnabled ? 1 : 0.4)
+        .disabled(!model.canControlPlayback)
+        .opacity(model.canControlPlayback ? 1 : 0.4)
     }
 }
 

@@ -43,6 +43,9 @@
 		A10000000000000000000024 /* TidalPlayerLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* TidalPlayerLog.swift */; };
 		B10000000000000000000012 /* TidalPlayerLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* TidalPlayerLog.swift */; };
 		B10000000000000000000013 /* TidalPlayerLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000006 /* TidalPlayerLogTests.swift */; };
+		A10000000000000000000025 /* NowPlayingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* NowPlayingAdapter.swift */; };
+		B10000000000000000000014 /* NowPlayingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* NowPlayingAdapter.swift */; };
+		B10000000000000000000015 /* NowPlayingAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000007 /* NowPlayingAdapterTests.swift */; };
 		B10000000000000000000008 /* UpdateCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* UpdateCheckerTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -85,6 +88,8 @@
 		B20000000000000000000004 /* UpdateCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCheckerTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000032 /* TidalPlayerLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidalPlayerLog.swift; sourceTree = "<group>"; };
 		B20000000000000000000006 /* TidalPlayerLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidalPlayerLogTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000033 /* NowPlayingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingAdapter.swift; sourceTree = "<group>"; };
+		B20000000000000000000007 /* NowPlayingAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingAdapterTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000040 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = "de.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		A20000000000000000000050 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = "de.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		A20000000000000000000041 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = "es.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
@@ -207,6 +212,7 @@
 				A20000000000000000000009 /* MediaAuthorizationController.swift */,
 				A20000000000000000000010 /* LogStreamController.swift */,
 				A20000000000000000000032 /* TidalPlayerLog.swift */,
+				A20000000000000000000033 /* NowPlayingAdapter.swift */,
 			);
 			path = NowPlaying;
 			sourceTree = "<group>";
@@ -219,6 +225,7 @@
 				B20000000000000000000004 /* UpdateCheckerTests.swift */,
 				B20000000000000000000005 /* PEQCompatibilityTests.swift */,
 				B20000000000000000000006 /* TidalPlayerLogTests.swift */,
+				B20000000000000000000007 /* NowPlayingAdapterTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -242,6 +249,7 @@
 				A30000000000000000000002 /* Sources */,
 				A30000000000000000000001 /* Frameworks */,
 				A30000000000000000000003 /* Resources */,
+				A30000000000000000000004 /* Build MediaRemote adapter */,
 			);
 			buildRules = (
 			);
@@ -327,6 +335,27 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXShellScriptBuildPhase section */
+		A30000000000000000000004 /* Build MediaRemote adapter */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/scripts/build-mediaremote-adapter.sh",
+				"$(SRCROOT)/.git/modules/Vendor/mediaremote-adapter/HEAD",
+			);
+			name = "Build MediaRemote adapter";
+			outputPaths = (
+				"$(TARGET_BUILD_DIR)/$(FRAMEWORKS_FOLDER_PATH)/MediaRemoteAdapter.framework/Versions/A/MediaRemoteAdapter",
+				"$(TARGET_BUILD_DIR)/$(UNLOCALIZED_RESOURCES_FOLDER_PATH)/mediaremote-adapter.pl",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"$SRCROOT/scripts/build-mediaremote-adapter.sh\"\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		A30000000000000000000002 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -342,6 +371,7 @@
 				A10000000000000000000006 /* MediaAuthorizationController.swift in Sources */,
 				A10000000000000000000007 /* LogStreamController.swift in Sources */,
 				A10000000000000000000024 /* TidalPlayerLog.swift in Sources */,
+				A10000000000000000000025 /* NowPlayingAdapter.swift in Sources */,
 				A10000000000000000000008 /* PanelView.swift in Sources */,
 				A10000000000000000000021 /* Theme.swift in Sources */,
 				A10000000000000000000011 /* PEQModels.swift in Sources */,
@@ -373,6 +403,8 @@
 				B10000000000000000000011 /* PEQCompatibilityTests.swift in Sources */,
 				B10000000000000000000012 /* TidalPlayerLog.swift in Sources */,
 				B10000000000000000000013 /* TidalPlayerLogTests.swift in Sources */,
+				B10000000000000000000014 /* NowPlayingAdapter.swift in Sources */,
+				B10000000000000000000015 /* NowPlayingAdapterTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

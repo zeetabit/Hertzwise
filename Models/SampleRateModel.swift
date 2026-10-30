@@ -82,6 +82,9 @@ final class SampleRateModel {
     }
 
     private let mediaRemoteController = MediaRemoteController()
+    private let nowPlayingAdapter = NowPlayingAdapter()
+    @ObservationIgnored private var adapterSubscription: AnyCancellable?
+    @ObservationIgnored private var adapterTrack: NowPlayingAdapter.Track?
     private let musicController = MusicController()
     private let logController = LogStreamController()
     private let tidalLogController = TidalPlayerLogController()
@@ -149,22 +152,34 @@ final class SampleRateModel {
         updateState()
     }
 
+    /// The panel's transport drives the player shown, through the adapter;
+    /// without it, only Apple Music through AppleScript.
+    var canControlPlayback: Bool {
+        nowPlayingAdapter.isAvailable ? followedTrack != nil : appleMusicEnabled
+    }
+
     func togglePlayPause() {
-        guard appleMusicEnabled else { return }
+        guard canControlPlayback else { return }
         isPlaying.toggle()
-        musicController.send(.playPause)
-        scheduleQuickRefresh()
+        sendTransport(.togglePlayPause, fallback: .playPause)
     }
 
     func nextTrack() {
-        guard appleMusicEnabled else { return }
-        musicController.send(.nextTrack)
-        scheduleQuickRefresh()
+        guard canControlPlayback else { return }
+        sendTransport(.nextTrack, fallback: .nextTrack)
     }
 
     func previousTrack() {
-        guard appleMusicEnabled else { return }
-        musicController.send(.previousTrack)
+        guard canControlPlayback else { return }
+        sendTransport(.previousTrack, fallback: .previousTrack)
+    }
+
+    private func sendTransport(_ command: NowPlayingAdapter.Command, fallback: MusicCommand) {
+        if nowPlayingAdapter.isAvailable {
+            nowPlayingAdapter.send(command)
+        } else {
+            musicController.send(fallback)
+        }
         scheduleQuickRefresh()
     }
 
@@ -308,6 +323,11 @@ final class SampleRateModel {
             }
         }
 
+        guard !nowPlayingAdapter.isAvailable else {
+            applyNowPlaying(NowPlayingResult(info: followedTrack.map(Self.nowPlayingInfo), errorMessage: nil),
+                            outputDevice: outputDevice)
+            return
+        }
         mediaRemoteController.nowPlayingInfo { [weak self] result in
             DispatchQueue.main.async {
                 self?.applyNowPlaying(result, outputDevice: outputDevice)
@@ -315,10 +335,26 @@ final class SampleRateModel {
         }
     }
 
+    /// The adapter's track when it comes from a player Hertzwise follows.
+    private var followedTrack: NowPlayingAdapter.Track? {
+        guard let adapterTrack else { return nil }
+        switch adapterTrack.bundleID {
+        case "com.tidal.desktop": return tidalEnabled ? adapterTrack : nil
+        case "com.apple.Music": return appleMusicEnabled ? adapterTrack : nil
+        default: return nil
+        }
+    }
+
+    private static func nowPlayingInfo(_ track: NowPlayingAdapter.Track) -> NowPlayingInfo {
+        NowPlayingInfo(title: track.title, artist: track.artist, album: track.album,
+                       artworkData: track.artwork, sampleRate: nil, isPlaying: track.isPlaying,
+                       elapsed: track.elapsed, duration: track.duration, timestamp: track.timestamp)
+    }
+
     /// Refreshes the Music.app fallback metadata without blocking. At most one
     /// fetch is ever in flight; the result lands on the main queue.
     private func refreshTrackInfoIfNeeded() {
-        guard appleMusicEnabled else {
+        guard appleMusicEnabled, !nowPlayingAdapter.isAvailable else {
             latestTrackInfo = nil
             latestTrackInfoError = nil
             return
@@ -471,7 +507,7 @@ final class SampleRateModel {
     /// start a second one; the running fetch re-issues itself for the new
     /// track when it lands, so the new track is never left without a cover.
     private func fetchPendingArtwork() {
-        guard appleMusicEnabled else { return }
+        guard appleMusicEnabled, !nowPlayingAdapter.isAvailable else { return }
         guard !artworkFetchInFlight, let title = pendingArtworkTitle else { return }
         artworkFetchInFlight = true
 
@@ -556,6 +592,18 @@ final class SampleRateModel {
             tidalLogController.start()
         } else {
             tidalLogController.stop()
+        }
+
+        adapterSubscription = nowPlayingAdapter.track
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] track in
+                self?.adapterTrack = track
+                self?.updateState()
+            }
+        if tidalEnabled || appleMusicEnabled {
+            nowPlayingAdapter.start()
+        } else {
+            nowPlayingAdapter.stop()
         }
     }
 
