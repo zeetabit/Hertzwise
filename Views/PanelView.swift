@@ -248,9 +248,16 @@ private struct PanelHeader: View {
     @ViewBuilder
     private var updateMenuItems: some View {
         if let version = updates.availableVersion {
-            Button("Update available — \(version)") { updates.checkForUpdates() }
+            Button("Update available — \(version)") { checkForUpdates() }
         }
-        Button("Check for Updates…") { updates.checkForUpdates() }
+        Button("Check for Updates…") { checkForUpdates() }
+    }
+
+    /// The panel floats above other windows, so it closes first or it would
+    /// cover Sparkle's. It is the key window while its menu is used.
+    private func checkForUpdates() {
+        NSApp.keyWindow?.close()
+        updates.checkForUpdates()
     }
 }
 

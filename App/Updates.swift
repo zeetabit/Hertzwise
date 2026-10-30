@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 import Observation
 import Sparkle
 
@@ -25,6 +25,9 @@ final class Updates: NSObject, SPUStandardUserDriverDelegate {
     }
 
     func checkForUpdates() {
+        // A menu-bar app is never the active app: without this, Sparkle's
+        // window opens behind the frontmost app.
+        NSApp.activate()
         controller.checkForUpdates(nil)
     }
 
