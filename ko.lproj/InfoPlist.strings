@@ -4,5 +4,5 @@ CFBundleName = "Hertzwise";
 NSAppleEventsUsageDescription = "Hertzwise가 현재 트랙을 읽고 재생을 제어하려면 Apple Music에 접근해야 합니다.";
 NSAppleMusicUsageDescription = "Hertzwise에 Apple Music 재생 정보 접근 권한이 필요합니다.";
 NSMediaLibraryUsageDescription = "Hertzwise가 현재 재생 중인 항목의 메타데이터를 읽으려면 미디어 보관함에 접근해야 합니다.";
-NSAudioCaptureUsageDescription = "Hertzwise는 Apple Music의 오디오가 출력 기기에 도달하기 전에 이를 받아 헤드폰 EQ를 적용합니다.";
-NSMicrophoneUsageDescription = "Hertzwise가 헤드폰 EQ에 사용할 Apple Music 사운드를 받으려면 오디오 입력 접근 권한이 필요합니다. 마이크 음성은 절대 녹음하지 않습니다.";
+NSAudioCaptureUsageDescription = "Hertzwise는 선택한 기기에서 재생되는 오디오를 가져와, 기기에 도달하기 전에 볼륨과 헤드폰 EQ를 적용합니다.";
+NSMicrophoneUsageDescription = "Hertzwise는 볼륨과 헤드폰 EQ를 위해 그 오디오를 받으려면 오디오 입력 접근 권한이 필요합니다. 마이크는 절대 녹음하지 않습니다.";

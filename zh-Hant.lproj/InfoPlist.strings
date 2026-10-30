@@ -3,5 +3,5 @@ CFBundleName = "Hertzwise";
 NSAppleEventsUsageDescription = "Hertzwise 需要存取 Apple Music 以讀取目前曲目並控制播放。";
 NSAppleMusicUsageDescription = "Hertzwise 需要存取 Apple Music 的播放資訊。";
 NSMediaLibraryUsageDescription = "Hertzwise 需要存取您的媒體資料庫以讀取正在播放的中繼資料。";
-NSAudioCaptureUsageDescription = "Hertzwise 會擷取 Apple Music 的音訊，在送達輸出裝置前套用您的耳機等化。";
-NSMicrophoneUsageDescription = "Hertzwise 需要音訊輸入權限來接收 Apple Music 的聲音以套用耳機等化，不會錄製你的麥克風。";
+NSAudioCaptureUsageDescription = "Hertzwise 會擷取在你所選裝置上播放的音訊，在其到達裝置之前套用裝置音量和你的耳機等化器。";
+NSMicrophoneUsageDescription = "Hertzwise 需要音訊輸入權限，以接收該音訊用於音量和耳機等化器。它從不錄製你的麥克風。";
