@@ -32,3 +32,4 @@ exclude:
   - scripts
   - "*.lproj"
   - branding/render_icon.swift
+  - docs
