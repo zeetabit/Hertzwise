@@ -4,7 +4,12 @@ title: Hertzwise
 description: Automatic sample-rate switching for Tidal and Apple Music on Mac, with DAC volume control and a per-device headphone EQ.
 url: https://zeetabit.github.io
 baseurl: /Hertzwise
-image: /branding/social.png
+# jekyll-seo-tag reads the preview image from page front matter only.
+defaults:
+  - scope:
+      path: ""
+    values:
+      image: /branding/social.png
 lang: en
 plugins:
   - jekyll-seo-tag
