@@ -793,8 +793,9 @@ private struct StatusFooter: View {
 
     var body: some View {
         let warning = model.signalWarning
-        let lines = [model.statusMessage, model.outputNotice ?? "", warning ?? model.logStatusMessage].filter { !$0.isEmpty }
-        let warns = warning != nil || model.outputNotice != nil
+        let lines = [model.statusMessage, model.outputNotice ?? "", model.rateLimitNotice ?? "",
+                     warning ?? model.logStatusMessage].filter { !$0.isEmpty }
+        let warns = warning != nil || model.outputNotice != nil || model.rateLimitNotice != nil
         if !lines.isEmpty {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Circle()

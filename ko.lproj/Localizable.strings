@@ -121,3 +121,5 @@
 "%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@은(는) Mac의 볼륨을 무시하므로 Hertzwise가 볼륨을 적용합니다. 종료하면 그 기기에서 재생되는 모든 소리가 기기의 최대 볼륨으로 재생됩니다.";
 "Cancel" = "취소";
 "Don't ask again" = "다시 묻지 않기";
+"%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@은(는) %2$@을(를) 재생할 수 없어 %3$@(으)로 리샘플링해 재생합니다.";
+"It is in console mode: unplug it and plug it back in without holding the volume buttons." = "콘솔 모드입니다. 볼륨 버튼을 누르지 않은 채로 뽑았다가 다시 연결하세요.";

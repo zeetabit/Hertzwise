@@ -69,6 +69,21 @@ enum HostVolumeControl {
     }
 }
 
+/// Why a device plays below its usual rates, and the fix, for devices known
+/// to have such a mode. Matched on the model UID's vendor and product IDs.
+enum DeviceRateLimitHint {
+    private static let hints: [(modelUIDSuffix: String, hint: String)] = [
+        // Lotoo PAW S1 in console mode (product ID 0x2015, plugged in holding
+        // both volume buttons): USB Audio 1.0, 48 kHz/16-bit only.
+        (":2016:2015", "It is in console mode: unplug it and plug it back in without holding the volume buttons."),
+    ]
+
+    static func hint(modelUID: String?) -> String? {
+        guard let modelUID else { return nil }
+        return hints.first { modelUID.uppercased().hasSuffix($0.modelUIDSuffix) }.map { L10n.string($0.hint) }
+    }
+}
+
 /// Per output device: whether the headphone EQ processes it while the EQ is
 /// on. EQ corrects headphones, so it belongs to the device they plug into.
 enum DeviceEQ {
@@ -317,8 +332,28 @@ final class AudioDeviceController {
         }
     }
 
-    func setDefaultOutputSampleRate(_ sampleRate: Double) -> Bool {
+    /// The rate actually set, or nil on failure.
+    func setDefaultOutputSampleRate(_ sampleRate: Double) -> Double? {
         setOutputSampleRate(sampleRate, deviceUID: nil)
+    }
+
+    /// The rate the device would play `sampleRate` at: itself when supported,
+    /// otherwise the nearest it supports.
+    func playableSampleRate(_ sampleRate: Double, deviceUID: String?) -> Double? {
+        outputDeviceID(uid: deviceUID).flatMap { nearestSupportedSampleRate(sampleRate, deviceID: $0) }
+    }
+
+    /// Core Audio's model UID; for a USB device it ends in its vendor and
+    /// product IDs.
+    func modelUID(deviceUID: String?) -> String? {
+        guard let deviceID = outputDeviceID(uid: deviceUID) else { return nil }
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyModelUID,
+                                                 mScope: kAudioObjectPropertyScopeGlobal,
+                                                 mElement: kAudioObjectPropertyElementMain)
+        var value: CFString = "" as CFString
+        var size = UInt32(MemoryLayout<CFString>.size)
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &value) == noErr else { return nil }
+        return value as String
     }
 
     /// `deviceUID` nil means the system default output.
@@ -355,13 +390,15 @@ final class AudioDeviceController {
     }
 
     /// `deviceUID` nil means the system default output.
-    func setOutputSampleRate(_ sampleRate: Double, deviceUID: String?) -> Bool {
+    /// The rate actually set — the nearest supported one when `sampleRate`
+    /// isn't — or nil on failure.
+    func setOutputSampleRate(_ sampleRate: Double, deviceUID: String?) -> Double? {
         guard let deviceID = outputDeviceID(uid: deviceUID) else {
-            return false
+            return nil
         }
 
         guard let targetRate = nearestSupportedSampleRate(sampleRate, deviceID: deviceID) else {
-            return false
+            return nil
         }
 
         var settable: DarwinBoolean = false
@@ -372,18 +409,18 @@ final class AudioDeviceController {
         )
 
         guard AudioObjectHasProperty(deviceID, &address) else {
-            return false
+            return nil
         }
 
         let status = AudioObjectIsPropertySettable(deviceID, &address, &settable)
         guard status == noErr, settable.boolValue else {
-            return false
+            return nil
         }
 
         var rate = targetRate
-        var size = UInt32(MemoryLayout<Double>.size)
+        let size = UInt32(MemoryLayout<Double>.size)
         let setStatus = AudioObjectSetPropertyData(deviceID, &address, 0, nil, size, &rate)
-        return setStatus == noErr
+        return setStatus == noErr ? targetRate : nil
     }
 
     private func outputDeviceID(uid: String?) -> AudioDeviceID? {

@@ -121,3 +121,5 @@
 "%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ ignora o volume do Mac, e o Hertzwise o aplica. Depois de encerrar, tudo o que tocar ali tocará no volume máximo do dispositivo.";
 "Cancel" = "Cancelar";
 "Don't ask again" = "Não perguntar novamente";
+"%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ não reproduz %2$@, então toca reamostrado a %3$@.";
+"It is in console mode: unplug it and plug it back in without holding the volume buttons." = "Está no modo console: desconecte e conecte de novo sem segurar os botões de volume.";

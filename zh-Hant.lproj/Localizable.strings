@@ -133,3 +133,5 @@
 "%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ 會忽略 Mac 的音量，由 Hertzwise 套用音量。結束後，在該裝置上播放的內容將以裝置的最大音量播放。";
 "Cancel" = "取消";
 "Don't ask again" = "不再詢問";
+"%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ 無法播放 %2$@，因此以 %3$@ 重新取樣播放。";
+"It is in console mode: unplug it and plug it back in without holding the volume buttons." = "它處於主控台模式：請拔下後重新插入，插入時不要按住音量鍵。";

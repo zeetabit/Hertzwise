@@ -131,3 +131,5 @@
 "%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ は Mac の音量を無視するため、Hertzwise が音量を適用しています。終了すると、そこで再生されるものはデバイスの最大音量になります。";
 "Cancel" = "キャンセル";
 "Don't ask again" = "今後確認しない";
+"%1$@ can't play %2$@, so it plays resampled at %3$@." = "%1$@ は %2$@ を再生できないため、%3$@ にリサンプリングして再生します。";
+"It is in console mode: unplug it and plug it back in without holding the volume buttons." = "コンソールモードになっています。音量ボタンを押さずに抜き差ししてください。";

@@ -38,6 +38,8 @@ final class SampleRateModel {
     /// Set while a followed player plays to a device it chose itself, other
     /// than the Mac's output: "Use as output" cannot move it.
     var outputNotice: String?
+    /// The device can't play the track's rate, so it plays resampled.
+    var rateLimitNotice: String?
     var autoSwitchEnabled: Bool = true
     var tidalEnabled = PlayerSources.tidal {
         didSet {
@@ -238,7 +240,7 @@ final class SampleRateModel {
             autoSwitchEnabled = false
         }
 
-        if audioController.setDefaultOutputSampleRate(rate) {
+        if audioController.setDefaultOutputSampleRate(rate) != nil {
             outputSampleRate = rate
             outputSampleRateDisplay = formatSampleRate(rate)
             statusMessage = L10n.format("Output set to %@", formatSampleRate(rate))
@@ -486,10 +488,11 @@ final class SampleRateModel {
             return
         }
 
-        guard let targetSampleRate = stableLogSampleRate else {
+        guard let trackSampleRate = stableLogSampleRate else {
             assign(\.statusMessage, L10n.string("Waiting for log sample rate"))
             return
         }
+        let targetSampleRate = playableSampleRate(trackSampleRate, deviceUID: nil)
 
         if let currentOutputRate = outputDevice.sampleRate,
            abs(currentOutputRate - targetSampleRate) < 1.0 {
@@ -497,7 +500,7 @@ final class SampleRateModel {
             return
         }
 
-        if audioController.setDefaultOutputSampleRate(targetSampleRate) {
+        if audioController.setDefaultOutputSampleRate(targetSampleRate) != nil {
             assign(\.statusMessage, L10n.format("Switched output to %@", formatSampleRate(targetSampleRate)))
         } else {
             assign(\.statusMessage, L10n.string("Failed to switch output sample rate"))
@@ -704,6 +707,25 @@ final class SampleRateModel {
         OutputPaths.shared.updateDevices(connected: uids)
     }
 
+    /// The rate the device plays `trackRate` at, noting when that isn't the
+    /// track's own: the track is then resampled, which the user should know.
+    private func playableSampleRate(_ trackRate: Double, deviceUID: String?) -> Double {
+        let playable = audioController.playableSampleRate(trackRate, deviceUID: deviceUID) ?? trackRate
+        guard abs(playable - trackRate) >= 1 else {
+            assign(\.rateLimitNotice, nil)
+            return trackRate
+        }
+        let device = outputDevices.first { deviceUID == nil ? $0.id == currentOutputDeviceID : $0.uid == deviceUID }
+        let name = device?.name ?? outputDeviceName
+        var notice = L10n.format("%1$@ can't play %2$@, so it plays resampled at %3$@.",
+                                 name, formatSampleRate(trackRate), formatSampleRate(playable))
+        if let hint = DeviceRateLimitHint.hint(modelUID: audioController.modelUID(deviceUID: deviceUID)) {
+            notice += " " + hint
+        }
+        assign(\.rateLimitNotice, notice)
+        return playable
+    }
+
     private func updateOutputNotice() {
         let notice = PlayerSource.allCases.lazy.compactMap { source -> String? in
             guard self.isFollowed(source),
@@ -786,8 +808,9 @@ final class SampleRateModel {
         assign(\.signalWarning, nil)
     }
 
-    private func applyLogAutoSwitch(sampleRate: Double, deviceUID: String? = nil) {
+    private func applyLogAutoSwitch(sampleRate trackSampleRate: Double, deviceUID: String? = nil) {
         guard autoSwitchEnabled, OutputRateLock.shared.heldRate == nil else { return }
+        let sampleRate = playableSampleRate(trackSampleRate, deviceUID: deviceUID)
 
         guard let currentOutputRate = audioController.nominalSampleRate(deviceUID: deviceUID),
               abs(currentOutputRate - sampleRate) >= 1.0 else {
@@ -801,7 +824,7 @@ final class SampleRateModel {
             return
         }
 
-        if audioController.setOutputSampleRate(sampleRate, deviceUID: deviceUID) {
+        if audioController.setOutputSampleRate(sampleRate, deviceUID: deviceUID) != nil {
             lastAppliedSampleRate = sampleRate
             lastAppliedAt = Date()
             if deviceUID == nil {
