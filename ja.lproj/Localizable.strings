@@ -127,3 +127,7 @@
 "Control volume" = "音量を制御";
 "Use as output" = "出力に使用";
 "%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ は Mac の出力ではなく、自身の設定で %2$@ に再生しています";
+"Quit Hertzwise?" = "Hertzwise を終了しますか?";
+"%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ は Mac の音量を無視するため、Hertzwise が音量を適用しています。終了すると、そこで再生されるものはデバイスの最大音量になります。";
+"Cancel" = "キャンセル";
+"Don't ask again" = "今後確認しない";

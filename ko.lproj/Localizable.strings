@@ -117,3 +117,7 @@
 "Control volume" = "볼륨 제어";
 "Use as output" = "출력으로 사용";
 "%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@은(는) Mac 출력이 아닌 자체 설정에 따라 %2$@(으)로 재생 중";
+"Quit Hertzwise?" = "Hertzwise를 종료할까요?";
+"%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@은(는) Mac의 볼륨을 무시하므로 Hertzwise가 볼륨을 적용합니다. 종료하면 그 기기에서 재생되는 모든 소리가 기기의 최대 볼륨으로 재생됩니다.";
+"Cancel" = "취소";
+"Don't ask again" = "다시 묻지 않기";

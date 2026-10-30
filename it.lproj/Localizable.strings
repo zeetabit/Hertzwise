@@ -117,3 +117,7 @@
 "Control volume" = "Controlla il volume";
 "Use as output" = "Usa come uscita";
 "%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ riproduce su %2$@ secondo le proprie impostazioni, non l’uscita del Mac";
+"Quit Hertzwise?" = "Uscire da Hertzwise?";
+"%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ ignora il volume del Mac e Hertzwise lo applica. Dopo l’uscita, tutto ciò che vi viene riprodotto suonerà al volume massimo del dispositivo.";
+"Cancel" = "Annulla";
+"Don't ask again" = "Non chiedere più";

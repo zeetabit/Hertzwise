@@ -129,3 +129,7 @@
 "Control volume" = "控制音量";
 "Use as output" = "用作输出";
 "%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ 按自身设置在 %2$@ 上播放，而非 Mac 的输出";
+"Quit Hertzwise?" = "要退出 Hertzwise 吗？";
+"%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ 会忽略 Mac 的音量，由 Hertzwise 应用音量。退出后，在该设备上播放的内容将以设备的最大音量播放。";
+"Cancel" = "取消";
+"Don't ask again" = "不再询问";

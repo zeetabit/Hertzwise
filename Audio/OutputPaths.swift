@@ -37,6 +37,12 @@ final class OutputPaths {
     @ObservationIgnored private var connectedUIDs: [String] = []
     @ObservationIgnored private let log = Logger(subsystem: "io.github.zeetabit.hertzwise", category: "OutputPaths")
 
+    /// Connected devices whose volume Hertzwise applies: without Hertzwise
+    /// they play at their own full level.
+    var volumeControlledUIDs: [String] {
+        connectedUIDs.filter { HostVolumeControl.isEnabled(uid: $0) }
+    }
+
     func updateDevices(connected uids: [String]) {
         connectedUIDs = uids.filter { !$0.isEmpty }
         reconcile()

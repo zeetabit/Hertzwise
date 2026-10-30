@@ -117,3 +117,7 @@
 "Control volume" = "Volume regelen";
 "Use as output" = "Als uitvoer gebruiken";
 "%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ speelt af op %2$@ volgens eigen instellingen, niet de Mac-uitvoer";
+"Quit Hertzwise?" = "Hertzwise stoppen?";
+"%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level." = "%@ negeert het volume van de Mac en Hertzwise past het toe. Na het stoppen speelt alles daar op het volle volume van het apparaat.";
+"Cancel" = "Annuleer";
+"Don't ask again" = "Niet meer vragen";

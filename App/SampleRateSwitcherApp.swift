@@ -61,8 +61,42 @@ private enum MenuBarMark {
 /// `.task` there would not run until the user clicks the menu bar. The launch
 /// update check hangs off the application lifecycle instead.
 final class AppDelegate: NSObject, NSApplicationDelegate {
+    private static let quitWarningSuppressedKey = "quitWarning.suppressed"
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         UpdateChecker.shared.checkAtLaunch()
+    }
+
+    /// A DAC whose volume Hertzwise applies plays at its own full level once
+    /// Hertzwise is gone, so a quit asks first. Logout, restart and shutdown
+    /// never wait on it.
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let quitReason = NSAppleEventManager.shared().currentAppleEvent?
+            .attributeDescriptor(forKeyword: kAEQuitReason)
+        guard quitReason == nil,
+              !UserDefaults.standard.bool(forKey: Self.quitWarningSuppressedKey) else { return .terminateNow }
+        let controlled = Set(OutputPaths.shared.volumeControlledUIDs)
+        let names = AudioDeviceController().outputDevices().filter { controlled.contains($0.uid) }.map(\.name)
+        guard !names.isEmpty else { return .terminateNow }
+
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = L10n.string("Quit Hertzwise?")
+        alert.informativeText = L10n.format(
+            "%@ ignores the Mac's volume, and Hertzwise applies it. After quitting, anything playing there plays at the device's full level.",
+            names.joined(separator: ", "))
+        alert.addButton(withTitle: L10n.string("Cancel"))
+        let quit = alert.addButton(withTitle: L10n.string("Quit"))
+        quit.hasDestructiveAction = true
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = L10n.string("Don't ask again")
+        NSApp.activate()
+        let response = alert.runModal()
+        guard response == .alertSecondButtonReturn else { return .terminateCancel }
+        if alert.suppressionButton?.state == .on {
+            UserDefaults.standard.set(true, forKey: Self.quitWarningSuppressedKey)
+        }
+        return .terminateNow
     }
 }
 
