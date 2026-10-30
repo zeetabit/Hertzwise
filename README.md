@@ -27,17 +27,33 @@ Requires macOS 15 or later. Hertzwise can be installed next to SyncHz: settings,
 ## Build from source
 
 ```bash
-git clone https://github.com/zeetabit/Hertzwise.git
+git clone --recursive https://github.com/zeetabit/Hertzwise.git
 cd Hertzwise
 open SampleRateSwitcher.xcodeproj
 ```
 
-Needs Xcode 26 or later.
+Needs Xcode 26 or later. In an existing clone, run `git submodule update --init` once.
+
+### Updating the MediaRemote adapter
+
+Track info and playback controls come from [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter), pinned as a submodule in `Vendor/mediaremote-adapter`. Updates are deliberate:
+
+1. Read the release notes of the new tag and the diff since the pinned one:
+   ```bash
+   cd Vendor/mediaremote-adapter
+   git fetch --tags
+   git log --oneline HEAD..NEW_TAG
+   git diff HEAD NEW_TAG -- src bin include CMakeLists.txt
+   ```
+2. Check the diff for anything a now-playing reader should not do (network, file writes, spawning processes) and for changes to the `stream` and `send` output the app parses.
+3. `git checkout NEW_TAG`, build, run the tests and check track info and playback controls with Tidal and Apple Music.
+4. Commit the new pin from the repository root: `git add Vendor/mediaremote-adapter`.
 
 ## Acknowledgements
 
 - **[SyncHz](https://github.com/jcongaku/SyncHz)** by Gary Kong, which Hertzwise is built on.
 - **[LosslessSwitcher](https://github.com/vincentneo/LosslessSwitcher)** by Vincent Neo, which SyncHz credits as its inspiration.
+- **[mediaremote-adapter](https://github.com/ungive/mediaremote-adapter)** by Jonas van den Berg, BSD 3-Clause, for now-playing access on macOS 15.4 and later.
 
 ## License
 
