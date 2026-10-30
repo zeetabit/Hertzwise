@@ -27,7 +27,7 @@ private struct AppMark: View {
 struct PanelView: View {
     var model: SampleRateModel
     @Bindable var eq: EQModel
-    var updates: UpdateChecker
+    var updates: Updates
     @State private var showEQ = false
     /// MenuBarExtra keeps this view tree alive while its window is ordered
     /// out, so anything animated would keep redrawing unseen.
@@ -170,7 +170,7 @@ private enum SyncState {
 private struct PanelHeader: View {
     @Bindable var model: SampleRateModel
     var eq: EQModel
-    var updates: UpdateChecker
+    var updates: Updates
     @Binding var showEQ: Bool
     @AppStorage(AppLanguage.storageKey) private var language: AppLanguage = .system
 
@@ -247,20 +247,10 @@ private struct PanelHeader: View {
 
     @ViewBuilder
     private var updateMenuItems: some View {
-        switch updates.state {
-        case let .available(version, _):
-            Button("Update available — \(version)") { updates.openReleasePage() }
-        case .checking:
-            Text("Checking for updates…")
-        case .upToDate:
-            Text("Hertzwise is up to date")
-        case let .failed(message):
-            Text("Update check failed: \(message)")
-        case .idle:
-            EmptyView()
+        if let version = updates.availableVersion {
+            Button("Update available — \(version)") { updates.checkForUpdates() }
         }
-
-        Button("Check for Updates…") { updates.check(userInitiated: true) }
+        Button("Check for Updates…") { updates.checkForUpdates() }
     }
 }
 

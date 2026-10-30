@@ -55,9 +55,6 @@
 "Headphone EQ" = "耳機等化器";
 "Parametric EQ" = "參數等化器";
 "Update available — %@" = "有可用更新 — %@";
-"Checking for updates…" = "正在檢查更新…";
-"Hertzwise is up to date" = "Hertzwise 已是最新版本";
-"Update check failed: %@" = "檢查更新失敗：%@";
 "Check for Updates…" = "檢查更新…";
 "EQ is on — playback is no longer bit-perfect" = "等化器已開啟 — 播放不再是 bit-perfect";
 "Output sample rate" = "輸出取樣率";

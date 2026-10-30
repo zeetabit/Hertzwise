@@ -12,7 +12,6 @@
 "Output set to %@" = "Uitvoer ingesteld op %@";
 "Drag a point: frequency × gain · Scroll: Q" = "Sleep een punt: frequentie × gain · Scroll: Q";
 "Switching" = "Wisselt";
-"Checking for updates…" = "Zoeken naar updates…";
 "EQ is on — playback is no longer bit-perfect" = "EQ staat aan – afspelen niet meer bit-perfect";
 "More" = "Meer";
 "Profile name" = "Profielnaam";
@@ -64,7 +63,6 @@
 "Equalizer" = "Equalizer";
 "Auto switch" = "Automatisch wisselen";
 "The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "De samplefrequentie waarop deze preset is afgestemd – 44,1 kHz voor de gepubliceerde presets van AutoEq. Hertzwise reproduceert deze frequentierespons bij elke samplefrequentie.";
-"Update check failed: %@" = "Zoeken naar updates mislukt: %@";
 "Follow System" = "Systeemtaal";
 "Failed to switch output sample rate" = "Kan samplefrequentie van uitvoer niet wisselen";
 "Output peak protected — lower boost or preamp" = "Piekniveau begrensd – verlaag boost of voorversterking";
@@ -84,7 +82,6 @@
 "Source" = "Bron";
 "Import AutoEQ…" = "Importeer AutoEQ…";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "%1$ld banden geïmporteerd uit %2$@ (%3$ld waarden beperkt tot het ondersteunde bereik).";
-"Hertzwise is up to date" = "Hertzwise is up-to-date";
 "Failed to switch output device" = "Kan niet wisselen van uitvoerapparaat";
 "Log stream started" = "Logstream gestart";
 "Previous track" = "Vorig nummer";

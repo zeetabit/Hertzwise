@@ -12,7 +12,6 @@
 "Output set to %@" = "출력을 %@(으)로 설정함";
 "Drag a point: frequency × gain · Scroll: Q" = "점 드래그: 주파수 × 게인 · 스크롤: Q";
 "Switching" = "전환 중";
-"Checking for updates…" = "업데이트 확인 중…";
 "EQ is on — playback is no longer bit-perfect" = "EQ 켬 — 재생이 더 이상 bit-perfect가 아닙니다";
 "More" = "더 보기";
 "Profile name" = "프로파일 이름";
@@ -64,7 +63,6 @@
 "Equalizer" = "이퀄라이저";
 "Auto switch" = "자동 전환";
 "The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "이 프리셋을 설계한 기준 샘플레이트입니다. AutoEq에서 공개한 프리셋은 44.1 kHz입니다. Hertzwise는 모든 재생 샘플레이트에서 이 응답 특성을 재현합니다.";
-"Update check failed: %@" = "업데이트 확인 실패: %@";
 "Follow System" = "시스템 설정 따르기";
 "Failed to switch output sample rate" = "출력 샘플레이트 전환 실패";
 "Output peak protected — lower boost or preamp" = "출력 피크 보호됨 — 부스트나 프리앰프를 낮추세요";
@@ -84,7 +82,6 @@
 "Source" = "소스";
 "Import AutoEQ…" = "AutoEQ 가져오기…";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "%2$@에서 밴드 %1$ld개를 가져왔습니다(값 %3$ld개를 지원 범위로 제한함).";
-"Hertzwise is up to date" = "Hertzwise가 최신 버전입니다";
 "Failed to switch output device" = "출력 기기 전환 실패";
 "Log stream started" = "로그 스트림 시작됨";
 "Previous track" = "이전 트랙";
