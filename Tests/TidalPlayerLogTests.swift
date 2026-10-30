@@ -148,7 +148,120 @@ final class TidalPlaybackStateTests: XCTestCase {
     func testDeviceSelectionIsTracked() {
         let result = run([device(pawS1, "Exclusive"), device(pawS1, "Shared")])
         XCTAssertEqual(result.state.deviceUID, pawS1)
-        XCTAssertFalse(result.state.exclusive)
+    }
+
+    // MARK: Unified log
+
+    private func runSystem(_ messages: [String], from initial: TidalPlaybackState = TidalPlaybackState())
+        -> (state: TidalPlaybackState, started: [TidalStreamFormat]) {
+        var state = initial
+        var started: [TidalStreamFormat] = []
+        for event in messages.compactMap(TidalPlayerLogParser.parseSystemLog) {
+            if let format = state.apply(event) {
+                started.append(format)
+            }
+        }
+        return (state, started)
+    }
+
+    /// The first track after launch, as logged at 09:01:07–08: setup passes
+    /// through the default device, and output starts 0.8 s after the first
+    /// converter. Nothing has played yet, so the switch waits for `Started`.
+    func testFirstTrackStartsWhenOutputStarts() {
+        let setup = runSystem([playStopped(pawS1), converter(96000, 24, to: 96000), playStopped(speakers),
+                               converter(96000, 24, to: 44100), playStopped(pawS1), converter(96000, 24, to: 96000)])
+        XCTAssertEqual(setup.started, [])
+        XCTAssertFalse(setup.state.isPlaying)
+
+        let playing = runSystem([playStarted(pawS1), converter(96000, 24, to: 96000), playStarted(pawS1)], from: setup.state)
+        XCTAssertEqual(playing.started, [format(96000, 24)])
+        XCTAssertEqual(playing.state.deviceUID, pawS1)
+    }
+
+    /// A skip once Tidal has played switches at setup, before output starts.
+    func testSkipAfterPlayingSwitchesAtSetup() {
+        let first = runSystem([converter(44100, 16, to: 44100), playStarted(pawS1)])
+        let skip = runSystem([playStopped(pawS1), converter(96000, 24, to: 44100), playStopped(speakers),
+                              converter(96000, 24, to: 44100)], from: first.state)
+        XCTAssertEqual(skip.started, [format(96000, 24)])
+
+        let resumed = runSystem([playStarted(pawS1)], from: skip.state)
+        XCTAssertEqual(resumed.started, [format(96000, 24)])
+    }
+
+    /// Setup briefly stops the default device; that is not the device Tidal plays to.
+    func testStopOnAnotherDeviceDoesNotStopPlayback() {
+        let playing = runSystem([converter(44100, 16, to: 44100), playStarted(pawS1), playStopped(speakers)])
+        XCTAssertTrue(playing.state.isPlaying)
+    }
+
+    /// Changing the device rate restarts output with no stop: nothing to repeat.
+    func testOutputRestartFromOurOwnSwitchStartsNothing() {
+        let playing = runSystem([converter(96000, 24, to: 44100), playStarted(pawS1)])
+        let restarted = runSystem([playStarted(pawS1), playStarted(pawS1)], from: playing.state)
+        XCTAssertEqual(restarted.started, [])
+    }
+
+    /// Output moving to another device while playing switches that device.
+    func testOutputMovingToAnotherDeviceStartsTheFormatThere() {
+        let playing = runSystem([converter(96000, 24, to: 96000), playStarted(pawS1)])
+        let moved = runSystem([playStarted(speakers)], from: playing.state)
+        XCTAssertEqual(moved.started, [format(96000, 24)])
+        XCTAssertEqual(moved.state.deviceUID, speakers)
+    }
+}
+
+private let speakers = "BuiltInSpeakerDevice"
+
+private func converter(_ rate: Int, _ bits: Int, to deviceRate: Int) -> String {
+    let source = bits == 16 ? "Int16, interleaved"
+                            : "lpcm (0x0000000C) \(bits)-bit little-endian signed integer"
+    return "       AudioConverter.cpp:1077  Created a new in process converter -> 0x7850baee0, from  2 ch,  \(rate) Hz, \(source) to  2 ch,  \(deviceRate) Hz, Float32, interleaved"
+}
+
+private func playStarted(_ uid: String) -> String {
+    "SessionCore_macOS_Legacy.mm:131   --> setPlayState Started  Output {\(uid), 0x36}"
+}
+
+private func playStopped(_ uid: String) -> String {
+    "SessionCore_macOS_Legacy.mm:131   --> setPlayState Stopped  Output {\(uid), 0x34}"
+}
+
+final class TidalSystemLogParserTests: XCTestCase {
+    func testConverterGivesTheSourceFormat() {
+        XCTAssertEqual(TidalPlayerLogParser.parseSystemLog(converter(96000, 24, to: 44100)),
+                       .sinkOpened(format(96000, 24)))
+        XCTAssertEqual(TidalPlayerLogParser.parseSystemLog(converter(44100, 16, to: 96000)),
+                       .sinkOpened(format(44100, 16)))
+        let float = "AudioConverter.cpp:1077  Created a new in process converter -> 0x1, from  2 ch,  192000 Hz, Float32, interleaved to  2 ch,  192000 Hz, Float32, interleaved"
+        XCTAssertEqual(TidalPlayerLogParser.parseSystemLog(float), .sinkOpened(format(192000, nil)))
+    }
+
+    func testPlayStateGivesDevice() {
+        XCTAssertEqual(TidalPlayerLogParser.parseSystemLog(playStarted(pawS1)), .outputStarted(deviceUID: pawS1))
+        XCTAssertEqual(TidalPlayerLogParser.parseSystemLog(playStopped(speakers)), .outputStopped(deviceUID: speakers))
+    }
+
+    func testOtherCoreAudioMessagesAreIgnored() {
+        let messages = [
+            "SessionCore_macOS_Legacy.mm:162   <-- setPlayState IOState: [0, 0]. BT device UIDS: {(",
+            "SessionCore_macOS_Legacy.mm:167   <-- setPlayState Server update was required.",
+            "AudioConverter -> 0x1: The in-process SetProperty call returned 1886547824 for property 1886547309 with size 4.",
+            "AUHAL.cpp:629   SelectDevice: -> (0x1)",
+        ]
+        for message in messages {
+            XCTAssertNil(TidalPlayerLogParser.parseSystemLog(message), message)
+        }
+    }
+
+    func testNdjsonLineIsDecoded() throws {
+        let json = try JSONSerialization.data(withJSONObject: [
+            "eventMessage": playStarted(pawS1),
+            "processImagePath": "/Applications/TIDAL.app/Contents/Resources/app.asar.unpacked/resources/osx/arm64/TIDALPlayer.app/Contents/MacOS/TIDALPlayer",
+        ])
+        XCTAssertEqual(TidalPlayerLogParser.parseSystemLogLine(String(decoding: json, as: UTF8.self)),
+                       .outputStarted(deviceUID: pawS1))
+        XCTAssertNil(TidalPlayerLogParser.parseSystemLogLine("not json"))
     }
 }
 
@@ -270,11 +383,36 @@ final class TidalPlayerLogControllerTests: XCTestCase {
                          started: [])
     }
 
+    /// `player.log` arrives seconds late; once the unified log is live, a
+    /// stale "paused" from the file must not stop playback.
+    func testFileIsIgnoredOnceTheSystemLogIsLive() throws {
+        try write([])
+        startController()
+
+        controller.ingestSystemLogLine(ndjson(converter(96000, 24, to: 44100)))
+        controller.ingestSystemLogLine(ndjson(playStarted(pawS1)))
+        assertEventually(events: [.sinkOpened(format(96000, 24)), .outputStarted(deviceUID: pawS1)],
+                         started: [format(96000, 24)])
+
+        try append([sinkOpen(96000, 24), status("paused")])
+        Thread.sleep(forTimeInterval: 0.2)
+        var state: TidalPlaybackState?
+        controller.state.sink { state = $0 }.store(in: &subscriptions)
+        XCTAssertEqual(state?.isPlaying, true)
+        assertEventually(events: [.sinkOpened(format(96000, 24)), .outputStarted(deviceUID: pawS1)],
+                         started: [format(96000, 24)])
+    }
+
     // MARK: - Helpers
+
+    private func ndjson(_ message: String) -> String {
+        let data = try! JSONSerialization.data(withJSONObject: ["eventMessage": message])
+        return String(decoding: data, as: UTF8.self)
+    }
 
     private func startController(playerRunning: Bool = true) {
         controller = TidalPlayerLogController(url: logURL, reopenInterval: 0.05,
-                                              isPlayerRunning: { playerRunning })
+                                              isPlayerRunning: { playerRunning }, systemLog: nil)
         controller.events.sink { [weak self] event in
             guard let self else { return }
             self.lock.lock(); self.events.append(event); self.lock.unlock()

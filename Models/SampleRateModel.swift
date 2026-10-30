@@ -445,7 +445,7 @@ final class SampleRateModel {
         assign(\.trackFormat, TrackFormat(codec: nil, bitDepth: format.bitDepth, tier: nil))
         // In exclusive mode Tidal sets the device rate itself and holds the
         // device, so switching it from here would only fail.
-        guard !playback.exclusive else {
+        guard !audioController.isHeldByAnotherProcess(deviceUID: playback.deviceUID) else {
             logStatusMessage = L10n.string("Tidal is in exclusive mode; not switching")
             return
         }

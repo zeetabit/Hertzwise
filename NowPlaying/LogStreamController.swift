@@ -20,6 +20,10 @@ final class LogStreamController {
     var onSampleRate: ((Double, String?) -> Void)?
     var onTrackFormat: ((TrackFormat) -> Void)?
     var onStatus: ((String) -> Void)?
+    /// When set, every ndjson line goes here instead of the Apple Music
+    /// parsing, so another source can reuse the process handling. Called on a
+    /// private queue.
+    var onLine: ((String) -> Void)?
 
     /// Deliberately narrow. Matching `CONTAINS[c] "audio"` and
     /// `CONTAINS[c] "format"` turned this into a firehose — Music.app alone
@@ -200,7 +204,11 @@ final class LogStreamController {
             }
 
             appendRecent(line)
-            handleLogLine(line)
+            if let onLine {
+                onLine(line)
+            } else {
+                handleLogLine(line)
+            }
         }
     }
 

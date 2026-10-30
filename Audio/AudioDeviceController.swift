@@ -266,6 +266,31 @@ final class AudioDeviceController {
         return doubleProperty(objectID: deviceID, selector: kAudioDevicePropertyNominalSampleRate)
     }
 
+    /// True when another process holds the device exclusively (hog mode), as
+    /// a player in exclusive mode does. `deviceUID` nil means the system
+    /// default output.
+    func isHeldByAnotherProcess(deviceUID: String?) -> Bool {
+        guard let deviceID = outputDeviceID(uid: deviceUID) else {
+            return false
+        }
+
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioDevicePropertyHogMode,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+        guard AudioObjectHasProperty(deviceID, &address) else {
+            return false
+        }
+
+        var owner = pid_t(-1)
+        var size = UInt32(MemoryLayout<pid_t>.size)
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &owner) == noErr else {
+            return false
+        }
+        return owner != -1 && owner != getpid()
+    }
+
     /// `deviceUID` nil means the system default output.
     func setOutputSampleRate(_ sampleRate: Double, deviceUID: String?) -> Bool {
         guard let deviceID = outputDeviceID(uid: deviceUID) else {
