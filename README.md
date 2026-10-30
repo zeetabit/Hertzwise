@@ -9,6 +9,11 @@ Automatic sample-rate switching for Mac music players, so your DAC follows every
 
 Hertzwise is a fork of [SyncHz](https://github.com/jcongaku/SyncHz) by Gary Kong. It keeps SyncHz's Apple Music support and headphone EQ, and adds other players, a volume stage for DACs that ignore the Mac's volume, and a per-device EQ.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="branding/screenshots/panel-dark.png">
+  <img alt="The Hertzwise panel: Tidal at 192 kHz, in sync with the PAW S1" src="branding/screenshots/panel-light.png" width="340">
+</picture>
+
 ## Status
 
 | Player | Rate switching | Status |

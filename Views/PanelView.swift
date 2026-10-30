@@ -1,60 +1,21 @@
 import SwiftUI
 import AppKit
 
-// MARK: - Rate mark (app logo)
+// MARK: - App mark
 
-/// Brand colours of the app icon. The mark keeps them in both appearances so
-/// it always matches the icon; the rest of the panel uses `Theme`.
-private enum Brand {
-    static let rikyu = Color(red: 0.714, green: 0.753, blue: 0.478)
-    static let paper = Color(red: 0.949, green: 0.933, blue: 0.894)
-    static let sumiTop = Color(red: 0.173, green: 0.169, blue: 0.180)
-    static let sumiBottom = Color(red: 0.082, green: 0.078, blue: 0.086)
-}
-
-/// The brand mark, a small copy of the app icon: a "96 kHz" readout with two
-/// faded sine waves running in phase behind it (source and output at the same
-/// frequency). Geometry follows `branding/render_icon.swift`, which works on
-/// an 824 pt tile; everything here is scaled from that.
-private struct RateMark: View {
+/// The app icon itself, so the panel's mark always matches it, as macOS
+/// renders it. The icon's image carries Apple's margin round the tile
+/// (824 of 1024 pt); scaled so the tile fills `size`.
+private struct AppMark: View {
     var size: CGFloat = 22
 
     var body: some View {
-        let corner = size * 0.225
-        Canvas { context, canvasSize in
-            let s = canvasSize.width / 824
-            // Icon coordinates are y-up with the tile at (100, 100).
-            func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint {
-                CGPoint(x: (x - 100) * s, y: canvasSize.height - (y - 100) * s)
-            }
-            for (midY, colour, alpha) in [(CGFloat(600), Brand.paper, 0.14), (420, Brand.rikyu, 0.20)] {
-                var wave = Path()
-                for i in 0...96 {
-                    let t = Double(i) / 96
-                    let p = point(60 + 904 * CGFloat(t), midY + 120 * CGFloat(sin(t * 2 * .pi * 1.25 + 0.4)))
-                    if i == 0 { wave.move(to: p) } else { wave.addLine(to: p) }
-                }
-                context.stroke(wave, with: .color(colour.opacity(alpha)),
-                               style: StrokeStyle(lineWidth: max(30 * s, 0.75), lineCap: .round))
-            }
-            // Centres of the glyphs: "96" at 440 pt, "kHz" at 118 pt.
-            context.draw(Text(verbatim: "96").font(.system(size: 440 * s, weight: .semibold))
-                            .tracking(-16 * s).foregroundStyle(Brand.paper),
-                         at: point(512, 584), anchor: .center)
-            context.draw(Text(verbatim: "kHz").font(.system(size: 118 * s, weight: .medium))
-                            .foregroundStyle(Brand.rikyu),
-                         at: point(512, 304), anchor: .center)
-        }
-        .frame(width: size, height: size)
-        .background(
-            LinearGradient(colors: [Brand.sumiTop, Brand.sumiBottom], startPoint: .top, endPoint: .bottom)
-        )
-        .clipShape(RoundedRectangle(cornerRadius: corner, style: .continuous))
-        .overlay(
-            RoundedRectangle(cornerRadius: corner, style: .continuous)
-                .strokeBorder(.white.opacity(0.10), lineWidth: 0.5)
-        )
-        .accessibilityLabel(Text(verbatim: "Hertzwise"))
+        Image(nsImage: NSApp.applicationIconImage)
+            .resizable()
+            .interpolation(.high)
+            .frame(width: size * 1024 / 824, height: size * 1024 / 824)
+            .frame(width: size, height: size)
+            .accessibilityLabel(Text(verbatim: "Hertzwise"))
     }
 }
 
@@ -215,7 +176,7 @@ private struct PanelHeader: View {
 
     var body: some View {
         HStack(spacing: 8) {
-            RateMark(size: 22)
+            AppMark(size: 22)
             Text(verbatim: "Hertzwise")
                 .font(.system(size: 13, weight: .semibold))
 

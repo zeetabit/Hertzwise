@@ -125,7 +125,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
+/// One Hertzwise at a time: each taps everything but itself, so two would
+/// mute each other's output and the DAC would go silent. Checked before
+/// SwiftUI builds the models, which start the audio paths.
 @main
+enum Launcher {
+    static func main() {
+        let others = NSRunningApplication.runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+            .filter { $0.processIdentifier != ProcessInfo.processInfo.processIdentifier }
+        if let running = others.first {
+            NSLog("Hertzwise is already running (pid %d); quitting", running.processIdentifier)
+            exit(0)
+        }
+        SampleRateSwitcherApp.main()
+    }
+}
+
 struct SampleRateSwitcherApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = SampleRateModel()
