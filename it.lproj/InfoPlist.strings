@@ -4,5 +4,5 @@ CFBundleName = "Hertzwise";
 NSAppleEventsUsageDescription = "Hertzwise richiede l’accesso ad Apple Music per leggere il brano corrente e controllare la riproduzione.";
 NSAppleMusicUsageDescription = "Hertzwise richiede l’accesso alle informazioni di riproduzione di Apple Music.";
 NSMediaLibraryUsageDescription = "Hertzwise richiede l’accesso alla libreria multimediale per leggere i metadati del brano in riproduzione.";
-NSAudioCaptureUsageDescription = "Hertzwise intercetta l’audio di Apple Music per applicare l’EQ delle cuffie prima che raggiunga il dispositivo di uscita.";
-NSMicrophoneUsageDescription = "Hertzwise richiede l’accesso all’ingresso audio per ricevere il suono di Apple Music per l’EQ delle cuffie. Non registra mai il microfono.";
+NSAudioCaptureUsageDescription = "Hertzwise intercetta l’audio riprodotto sui dispositivi che scegli, per applicarne il volume e l’equalizzatore per cuffie prima che li raggiunga.";
+NSMicrophoneUsageDescription = "Hertzwise ha bisogno dell’accesso all’ingresso audio per ricevere quell’audio per il volume e l’equalizzatore per cuffie. Non registra mai il tuo microfono.";

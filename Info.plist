@@ -11,9 +11,9 @@
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>2.4.0</string>
+    <string>1.0.0</string>
     <key>CFBundleVersion</key>
-    <string>8</string>
+    <string>1</string>
     <key>LSHasLocalizedDisplayName</key>
     <true/>
     <key>LSMultipleInstancesProhibited</key>
@@ -25,9 +25,9 @@
     <key>NSAppleMusicUsageDescription</key>
     <string>Hertzwise needs access to Apple Music playback information.</string>
     <key>NSMicrophoneUsageDescription</key>
-    <string>Hertzwise needs audio input access to receive Apple Music's sound for the headphone EQ. It never records your microphone.</string>
+    <string>Hertzwise needs audio input access to receive that audio for the volume and headphone EQ. It never records your microphone.</string>
     <key>NSAudioCaptureUsageDescription</key>
-    <string>Hertzwise taps Apple Music's audio to apply your headphone EQ before it reaches your output device.</string>
+    <string>Hertzwise taps the audio playing to the devices you choose, to apply their volume and your headphone EQ before it reaches them.</string>
     <key>NSMediaLibraryUsageDescription</key>
     <string>Hertzwise needs access to your media library to read now playing metadata.</string>
 </dict>

@@ -4,5 +4,5 @@ CFBundleName = "Hertzwise";
 NSAppleEventsUsageDescription = "Hertzwise necesita acceder a Apple Music para leer la pista actual y controlar la reproducción.";
 NSAppleMusicUsageDescription = "Hertzwise necesita acceder a la información de reproducción de Apple Music.";
 NSMediaLibraryUsageDescription = "Hertzwise necesita acceder a tu biblioteca multimedia para leer los metadatos de lo que se está reproduciendo.";
-NSAudioCaptureUsageDescription = "Hertzwise capta el audio de Apple Music para aplicar el EQ de tus auriculares antes de que llegue a tu dispositivo de salida.";
-NSMicrophoneUsageDescription = "Hertzwise necesita acceso a la entrada de audio para recibir el sonido de Apple Music para el EQ de auriculares. Nunca graba tu micrófono.";
+NSAudioCaptureUsageDescription = "Hertzwise capta el audio que suena en los dispositivos que elijas para aplicar su volumen y tu ecualizador de auriculares antes de que les llegue.";
+NSMicrophoneUsageDescription = "Hertzwise necesita acceso a la entrada de audio para recibir ese audio para el volumen y el ecualizador de auriculares. Nunca graba tu micrófono.";

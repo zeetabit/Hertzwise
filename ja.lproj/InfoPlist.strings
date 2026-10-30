@@ -3,5 +3,5 @@ CFBundleName = "Hertzwise";
 NSAppleEventsUsageDescription = "Hertzwise は、現在のトラックの読み取りと再生操作のために Apple Music へのアクセスを必要とします。";
 NSAppleMusicUsageDescription = "Hertzwise は、Apple Music の再生情報へのアクセスを必要とします。";
 NSMediaLibraryUsageDescription = "Hertzwise は、再生中のメタデータを読み取るためにメディアライブラリへのアクセスを必要とします。";
-NSAudioCaptureUsageDescription = "Hertzwise は、出力デバイスに届く前にヘッドホン EQ を適用するため、Apple Music の音声をタップします。";
-NSMicrophoneUsageDescription = "Hertzwise はヘッドホン EQ を適用するため、音声入力を通じて Apple Music の音を受け取ります。マイクを録音することはありません。";
+NSAudioCaptureUsageDescription = "Hertzwise は、選択したデバイスで再生されるオーディオを取り込み、デバイスに届く前に音量とヘッドフォン EQ を適用します。";
+NSMicrophoneUsageDescription = "Hertzwise は、音量とヘッドフォン EQ のためにそのオーディオを受け取るため、オーディオ入力へのアクセスが必要です。マイクを録音することはありません。";
