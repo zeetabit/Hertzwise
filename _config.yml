@@ -1,0 +1,29 @@
+# GitHub Pages renders README.md as the home page (jekyll-readme-index)
+# in _layouts/default.html: the README is the site's only content.
+title: Hertzwise
+description: Automatic sample-rate switching for Tidal and Apple Music on Mac, with DAC volume control and a per-device headphone EQ.
+url: https://zeetabit.github.io
+baseurl: /Hertzwise
+image: /branding/social.png
+lang: en
+plugins:
+  - jekyll-seo-tag
+include:
+  - branding
+exclude:
+  - App
+  - AppIcon.icon
+  - Audio
+  - EQ
+  - Info.plist
+  - Models
+  - NowPlaying
+  - SampleRateSwitcher.entitlements
+  - SampleRateSwitcher.xcodeproj
+  - Signing.xcconfig
+  - Tests
+  - Vendor
+  - Views
+  - scripts
+  - "*.lproj"
+  - branding/render_icon.swift
