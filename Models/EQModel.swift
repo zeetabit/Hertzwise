@@ -102,8 +102,8 @@ final class EQModel {
             case .authorized:
                 startEngine()
             case .notDetermined:
-                AVCaptureDevice.requestAccess(for: .audio) { granted in
-                    DispatchQueue.main.async { [weak self] in
+                AVCaptureDevice.requestAccess(for: .audio) { [weak self] granted in
+                    DispatchQueue.main.async {
                         guard let self, self.isEnabled else { return }
                         if granted { self.startEngine() } else { self.failAudioInputAccess() }
                     }

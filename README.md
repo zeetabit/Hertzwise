@@ -41,6 +41,8 @@ Both run in one muted process tap per device, so each device is processed once.
    xattr -dr com.apple.quarantine /Applications/Hertzwise.app
    ```
 
+After that, Hertzwise updates itself: it checks daily and installs a new version from the panel's menu, with no quarantine step and no new permission prompts.
+
 Requires macOS 15 or later. Hertzwise can be installed next to SyncHz: settings, EQ profiles and permissions are separate.
 
 ## Build from source

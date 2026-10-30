@@ -486,7 +486,7 @@
 				CODE_SIGN_ENTITLEMENTS = "$(HERTZWISE_ENTITLEMENTS:default=SampleRateSwitcher.entitlements)";
 				CODE_SIGN_STYLE = "$(HERTZWISE_CODE_SIGN_STYLE:default=Automatic)";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
@@ -497,7 +497,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.zeetabit.hertzwise;
 				PRODUCT_NAME = Hertzwise;
 				SWIFT_VERSION = 5.0;
@@ -513,7 +513,7 @@
 				CODE_SIGN_ENTITLEMENTS = "$(HERTZWISE_ENTITLEMENTS:default=SampleRateSwitcher.entitlements)";
 				CODE_SIGN_STYLE = "$(HERTZWISE_CODE_SIGN_STYLE:default=Automatic)";
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 2;
+				CURRENT_PROJECT_VERSION = 3;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				DEBUG_INFORMATION_FORMAT = dwarf;
 				DEVELOPMENT_TEAM = "";
@@ -524,7 +524,7 @@
 					"@executable_path/../Frameworks",
 				);
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
-				MARKETING_VERSION = 1.0.1;
+				MARKETING_VERSION = 1.0.2;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.zeetabit.hertzwise;
 				PRODUCT_NAME = Hertzwise;
 				SWIFT_VERSION = 5.0;
@@ -555,7 +555,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_STYLE = "$(HERTZWISE_CODE_SIGN_STYLE:default=Automatic)";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.zeetabit.hertzwise.tests;
@@ -568,7 +568,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_STYLE = "$(HERTZWISE_CODE_SIGN_STYLE:default=Automatic)";
 				GENERATE_INFOPLIST_FILE = YES;
 				MACOSX_DEPLOYMENT_TARGET = 15.0;
 				PRODUCT_BUNDLE_IDENTIFIER = io.github.zeetabit.hertzwise.tests;
