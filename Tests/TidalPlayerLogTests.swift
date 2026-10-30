@@ -189,6 +189,19 @@ final class TidalPlaybackStateTests: XCTestCase {
         XCTAssertEqual(resumed.started, [format(96000, 24)])
     }
 
+    /// A gapless change from 24/96 to 16/44.1, as logged at 12:18:42–43 on
+    /// 2026-10-30: output stops, the new stream opens against the 96 kHz
+    /// device, and output starts 0.7 s later at the switched rate.
+    func testGaplessRateChangeSwitchesBeforeOutputStarts() {
+        let playing = runSystem([converter(96000, 24, to: 96000), playStarted(pawS1)])
+        let change = runSystem([playStopped(pawS1), playStopped(pawS1), converter(44100, 16, to: 96000)], from: playing.state)
+        XCTAssertEqual(change.started, [format(44100, 16)])
+
+        let resumed = runSystem([playStarted(pawS1), converter(44100, 16, to: 44100), playStarted(pawS1),
+                                 converter(44100, 16, to: 44100), playStarted(pawS1)], from: change.state)
+        XCTAssertEqual(resumed.started, [format(44100, 16)])
+    }
+
     /// Setup briefly stops the default device; that is not the device Tidal plays to.
     func testStopOnAnotherDeviceDoesNotStopPlayback() {
         let playing = runSystem([converter(44100, 16, to: 44100), playStarted(pawS1), playStopped(speakers)])
