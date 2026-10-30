@@ -152,6 +152,11 @@ final class ProcessTapEngine: @unchecked Sendable {
     private static let eqRendersMusic = Atomic<Bool>(false)
     private static let eqRendersMusicDidChange = Notification.Name("io.github.zeetabit.hertzwise.eqRendersMusicDidChange")
     private var observers: [NSObjectProtocol] = []
+    private var serverRestartBlock: AudioObjectPropertyListenerBlock?
+    private static let serverRestartAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioHardwarePropertyServiceRestarted,
+        mScope: kAudioObjectPropertyScopeGlobal,
+        mElement: kAudioObjectPropertyElementMain)
 
     init(source: Source = .appleMusic, deviceUID: String? = nil) {
         self.source = source
@@ -182,10 +187,25 @@ final class ProcessTapEngine: @unchecked Sendable {
                     _ = self?.replacePath()
                 })
         }
+
+        // A coreaudiod restart destroys every tap and aggregate: the player
+        // would reach the DAC unmuted, and the device's volume is reset.
+        let restartBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            self?.recoverFromServerRestart()
+        }
+        var restartAddress = Self.serverRestartAddress
+        AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject),
+                                            &restartAddress, controlQueue, restartBlock)
+        serverRestartBlock = restartBlock
     }
 
     deinit {
         observers.forEach(NotificationCenter.default.removeObserver)
+        if let serverRestartBlock {
+            var restartAddress = Self.serverRestartAddress
+            AudioObjectRemovePropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject),
+                                                   &restartAddress, controlQueue, serverRestartBlock)
+        }
         // The IOProc reads the scratch buffers, so it must be gone first.
         stop()
         spectrumScratch.deallocate()
@@ -219,6 +239,7 @@ final class ProcessTapEngine: @unchecked Sendable {
             return fail("Couldn't read the output device UID.")
         }
         outputDeviceID = outputDevice
+        if !isReplacingPath { restoreRememberedVolume(outputDevice, uid: outputUID) }
         if holdsProcessingRate { holdProcessingRate(on: outputDevice) }
         sampleRate = nominalSampleRate(outputDevice) ?? Self.processingRate
 
@@ -338,6 +359,32 @@ final class ProcessTapEngine: @unchecked Sendable {
         startHealthTimer()
         log.error("Path replacement failed; kept the old path")
         return false
+    }
+
+    /// Control queue. The server's objects are gone: drop them without
+    /// destroying, then build afresh, retrying while the devices come back.
+    private func recoverFromServerRestart(attempt: Int = 1) {
+        guard attempt > 1 || isRunning else { return }
+        if attempt == 1 {
+            log.error("coreaudiod restarted; rebuilding the path")
+            stopHealthTimer()
+            rebuildWork?.cancel()
+            removeLifecycleListeners()
+            tapID = AudioObjectID(kAudioObjectUnknown)
+            aggregateID = AudioObjectID(kAudioObjectUnknown)
+            ioProcID = nil
+            retiringPath = nil
+            isRunning = false
+        }
+        pathGeneration += 1
+        if start() { return }
+        guard attempt < 10 else {
+            onRuntimeError?(lastError ?? "Couldn't rebuild the audio path after coreaudiod restarted.")
+            return
+        }
+        controlQueue.asyncAfter(deadline: .now() + 1) { [weak self] in
+            self?.recoverFromServerRestart(attempt: attempt + 1)
+        }
     }
 
     private static func setEQRendersMusic(_ renders: Bool) {
@@ -1123,8 +1170,41 @@ final class ProcessTapEngine: @unchecked Sendable {
     }
 
     private func updateGain(_ device: AudioObjectID) {
-        let controlsVolume = source == .allButHertzwise || deviceUID(device).map(HostVolumeControl.isEnabled) == true
-        setGain(controlsVolume ? deviceGain(device) : 1)
+        guard let uid = deviceUID(device), controlsVolume(uid: uid) else {
+            setGain(1)
+            return
+        }
+        if let volume = volumeScalar(device) { HostVolumeControl.remember(volume: volume, uid: uid) }
+        setGain(deviceGain(device))
+    }
+
+    private func controlsVolume(uid: String) -> Bool {
+        source == .allButHertzwise || HostVolumeControl.isEnabled(uid: uid)
+    }
+
+    /// The device's volume can be raised while Hertzwise isn't applying it:
+    /// coreaudiod resets it to full after a restart, and anything may set
+    /// it while Hertzwise isn't running. Lowered back, never raised.
+    private func restoreRememberedVolume(_ device: AudioObjectID, uid: String) {
+        guard controlsVolume(uid: uid),
+              let remembered = HostVolumeControl.rememberedVolume(uid: uid),
+              let current = volumeScalar(device), current > remembered + 0.001 else { return }
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeScalar,
+                                                 mScope: kAudioDevicePropertyScopeOutput,
+                                                 mElement: kAudioObjectPropertyElementMain)
+        var volume = remembered
+        let status = AudioObjectSetPropertyData(device, &address, 0, nil, UInt32(MemoryLayout<Float32>.size), &volume)
+        log.notice("Volume was raised to \(current, privacy: .public) while not applied; restored \(remembered, privacy: .public) (\(status, privacy: .public))")
+    }
+
+    private func volumeScalar(_ device: AudioObjectID) -> Float32? {
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeScalar,
+                                                 mScope: kAudioDevicePropertyScopeOutput,
+                                                 mElement: kAudioObjectPropertyElementMain)
+        var volume = Float32(0)
+        var size = UInt32(MemoryLayout<Float32>.size)
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &volume) == noErr else { return nil }
+        return volume
     }
 
     /// The device's own volume as a linear gain, from its dB value; 0 when

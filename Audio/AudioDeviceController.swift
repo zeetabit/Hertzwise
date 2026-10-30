@@ -34,6 +34,20 @@ enum HostVolumeControl {
         NotificationCenter.default.post(name: didChange, object: nil)
     }
 
+    private static let volumesKey = "volumeControl.lastVolumes"
+
+    /// The device volume Hertzwise last applied, as a scalar.
+    static func rememberedVolume(uid: String) -> Float32? {
+        (UserDefaults.standard.dictionary(forKey: volumesKey)?[uid] as? NSNumber)?.floatValue
+    }
+
+    static func remember(volume: Float32, uid: String) {
+        var volumes = UserDefaults.standard.dictionary(forKey: volumesKey) ?? [:]
+        guard (volumes[uid] as? NSNumber)?.floatValue != volume else { return }
+        volumes[uid] = volume
+        UserDefaults.standard.set(volumes, forKey: volumesKey)
+    }
+
     private static var stored: [String: Bool] {
         UserDefaults.standard.dictionary(forKey: key) as? [String: Bool] ?? [:]
     }
