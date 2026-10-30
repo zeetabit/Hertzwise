@@ -1,8 +1,17 @@
 import XCTest
 
 final class SourceArbiterTests: XCTestCase {
-    func testNothingPlayingLetsEitherPrepare() {
+    /// Restarting Hertzwise while Music plays must not let Tidal's restored
+    /// paused track switch the rate before Core Audio says who is playing.
+    func testNobodyDrivesBeforeTheFirstReport() {
         let arbiter = SourceArbiter()
+        XCTAssertFalse(arbiter.mayDrive(.tidal))
+        XCTAssertFalse(arbiter.mayDrive(.appleMusic))
+    }
+
+    func testNothingPlayingLetsEitherPrepare() {
+        var arbiter = SourceArbiter()
+        arbiter.update(outputting: [])
         XCTAssertNil(arbiter.active)
         XCTAssertTrue(arbiter.mayDrive(.tidal))
         XCTAssertTrue(arbiter.mayDrive(.appleMusic))

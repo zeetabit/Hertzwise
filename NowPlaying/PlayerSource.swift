@@ -60,6 +60,9 @@ struct SourceArbiter: Equatable {
     private var startOrder: [PlayerSource] = []
     /// The player that drove the output last, kept while everything pauses.
     private(set) var lastActive: PlayerSource?
+    /// Until Core Audio first reports, a paused player's restored state could
+    /// override one that is already playing.
+    private var hasReport = false
 
     var active: PlayerSource? {
         startOrder.last(where: outputting.contains)
@@ -71,13 +74,14 @@ struct SourceArbiter: Equatable {
     }
 
     func mayDrive(_ source: PlayerSource) -> Bool {
-        active == nil || active == source
+        hasReport && (active == nil || active == source)
     }
 
     /// Returns true when `active` changed.
     @discardableResult
     mutating func update(outputting now: Set<PlayerSource>) -> Bool {
         let before = active
+        hasReport = true
         for started in now.subtracting(outputting) {
             startOrder.removeAll { $0 == started }
             startOrder.append(started)

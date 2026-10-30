@@ -62,6 +62,31 @@ final class LogStreamControllerTests: XCTestCase {
         }
     }
 
+    /// As Music logged it for a 48 kHz AAC radio stream on 2026-10-30.
+    func testCoreAudioConverterLineGivesTheSourceRate() {
+        let line = #"{"eventMessage":"AudioConverter.cpp:1077 Created a new in process converter -> 0x7834e5f80, from 2 ch, 48000 Hz, aach (0x00000000) 0 bits/channel, 0 bytes/packet, 2048 frames/packet, 0 bytes/frame, 0 channels/frame to 2 ch, 48000 Hz, Float32, deinterleaved"}"#
+        XCTAssertEqual(sampleRates(from: [line]), [48000])
+    }
+
+    /// Its input is already decoded, so it states the device's rate, not the source's.
+    func testDeviceSideConverterLineIsIgnored() {
+        let line = #"{"eventMessage":"AudioConverter.cpp:1077 Created a new in process converter -> 0x7820a9980, from 2 ch, 44100 Hz, Float32, deinterleaved to 2 ch, 44100 Hz, Float32, interleaved"}"#
+        XCTAssertEqual(sampleRates(from: [line]), [])
+    }
+
+    /// `log show` lines also carry the format string, whose "from %s%s to"
+    /// must not count as a decoded input.
+    func testCatchUpPicksTheLatestDecoderLine() {
+        func line(_ message: String) -> String {
+            #"{"formatString":"%25s:%-5d Created a new %s converter -> %p, from %s%s to %s%s","eventMessage":"\#(message)"}"#
+        }
+        let decoder = line("AudioConverter.cpp:1077  Created a new in process converter -> 0x1, from  2 ch,  48000 Hz, aach (0x00000000) 0 bits/channel to  2 ch,  48000 Hz, Float32, deinterleaved")
+        let device = line("AudioConverter.cpp:1077  Created a new in process converter -> 0x2, from  2 ch,  44100 Hz, Float32, deinterleaved to  2 ch,  44100 Hz, Float32, interleaved")
+        let summary = #"{"count":2,"finished":1}"#
+        XCTAssertEqual(LogStreamController.latestSourceRateLine(in: [decoder, device, summary]), decoder)
+        XCTAssertNil(LogStreamController.latestSourceRateLine(in: [device, summary]))
+    }
+
     func testPlainTextAudioMessagesRemainSupported() {
         XCTAssertEqual(sampleRates(from: [
             "sample rate = 48000",

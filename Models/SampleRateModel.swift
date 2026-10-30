@@ -85,6 +85,9 @@ final class SampleRateModel {
     @ObservationIgnored private var tidalDeviceUID: String?
     @ObservationIgnored private var latestLogCandidateRate: Double?
     @ObservationIgnored private var stableLogSampleRate: Double?
+    /// Set when Music's rate came from its decoder line, which every stream
+    /// logs: a title change then needs no reset to the vote window.
+    @ObservationIgnored private var musicRateIsExact = false
     @ObservationIgnored private var latestTrackInfo: TrackInfo?
     @ObservationIgnored private var latestTrackInfoError: String?
     @ObservationIgnored private var trackInfoFetchInFlight = false
@@ -575,6 +578,10 @@ final class SampleRateModel {
 
     private func startLogParser() {
         logController.onSampleRate = { [weak self] rate, message in
+            if let message, LogStreamController.isSourceRateLine(message) {
+                DispatchQueue.main.async { self?.lockExactMusicRate(rate) }
+                return
+            }
             let weight = (message?.contains("Derived from frames/duration") ?? false) ? 3 : 1
             self?.enqueueLogVote(rate: rate, weight: weight)
         }
@@ -595,7 +602,7 @@ final class SampleRateModel {
             }
         }
 
-        // Music's reader streams at debug level, so it runs only while Music does.
+        // Music's reader runs only while Music does.
         if appleMusicEnabled, isMusicRunning {
             logController.start()
         } else {
@@ -791,7 +798,7 @@ final class SampleRateModel {
 
     private func updateTrackTitle(_ title: String) {
         guard !title.isEmpty else { return }
-        if let lastTrackTitle, lastTrackTitle != title {
+        if let lastTrackTitle, lastTrackTitle != title, !musicRateIsExact {
             resetLogLock(reason: "Track changed")
             // Music logs the new stream's format as playback starts, and the
             // title poll can trail that by a second or so — keep a format that
@@ -806,6 +813,7 @@ final class SampleRateModel {
     }
 
     private func resetLogLock(reason: String) {
+        musicRateIsExact = false
         stableLogSampleRate = nil
         stableLogSampleRateAt = nil
         logRateWindow.removeAll()
@@ -829,6 +837,15 @@ final class SampleRateModel {
             assign(\.trackSampleRateDisplay, "Unknown")
             assign(\.sampleRateSourceDisplay, "Unknown")
         }
+    }
+
+    /// Core Audio's decoder line states the rate exactly, as Tidal's does, so
+    /// it locks without going through the vote window.
+    private func lockExactMusicRate(_ rate: Double) {
+        logRateWindow.removeAll()
+        latestLogCandidateRate = nil
+        musicRateIsExact = true
+        lockSampleRate(rate, statusKey: "Log locked at %@")
     }
 
     /// Music's rate, from the log-vote window.

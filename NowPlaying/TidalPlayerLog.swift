@@ -280,7 +280,8 @@ final class TidalPlayerLogController {
     static func makeSystemLog() -> LogStreamController {
         let stream = LogStreamController()
         stream.predicate = TidalPlayerLogParser.systemLogPredicate
-        stream.logLevel = "default"
+        // player.log rebuilds Tidal's state at startup instead.
+        stream.catchUpPredicate = nil
         return stream
     }
 

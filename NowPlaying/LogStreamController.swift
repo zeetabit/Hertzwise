@@ -67,9 +67,18 @@ final class LogStreamController {
     /// Deliberately narrow. Matching `CONTAINS[c] "audio"` and
     /// `CONTAINS[c] "format"` turned this into a firehose — Music.app alone
     /// emitted thousands of matching debug events every few seconds, and each
-    /// one was dispatched to the main queue.
-    var predicate: String = "(process == \"Music\" OR subsystem == \"com.apple.Music\" OR subsystem == \"com.apple.mediaremoted\") AND (eventMessage CONTAINS[c] \"sample rate\" OR eventMessage CONTAINS[c] \"samplerate\" OR eventMessage CONTAINS[c] \"lossless\" OR eventMessage CONTAINS[c] \"hi-res\" OR eventMessage CONTAINS[c] \"kHz\" OR eventMessage CONTAINS[c] \"frames\" OR eventMessage CONTAINS[c] \"duration\")"
-    var logLevel: String = "debug"
+    /// one was dispatched to the main queue. `frames` and `duration` did the
+    /// same: Music's audio queue logs them for every buffer, ~17 lines a
+    /// second. Core Audio's converter line states the source rate once per
+    /// stream instead.
+    var predicate: String = "(process == \"Music\" OR subsystem == \"com.apple.Music\" OR subsystem == \"com.apple.mediaremoted\") AND (eventMessage CONTAINS \"Created a new in process converter\" OR eventMessage CONTAINS[c] \"sample rate\" OR eventMessage CONTAINS[c] \"samplerate\" OR eventMessage CONTAINS[c] \"lossless\" OR eventMessage CONTAINS[c] \"hi-res\" OR eventMessage CONTAINS[c] \"kHz\")"
+    /// The decoder line is a default-level message; debug level cost ~6x the CPU.
+    var logLevel: String = "default"
+    /// Music logs its source rate once per stream, so a reader started
+    /// mid-stream would never see it. When set, `start()` also replays the
+    /// latest matching line from the recent log.
+    var catchUpPredicate: String? = "process == \"Music\" AND eventMessage CONTAINS \"Created a new in process converter\""
+    private static let catchUpWindow = "10m"
 
     /// Stop retrying after this many consecutive failures so a permanently
     /// broken `log stream` cannot spawn processes forever.
@@ -94,6 +103,32 @@ final class LogStreamController {
             self.restartWorkItem = nil
             self.teardownStream()
             self.launchStream()
+        }
+        if command == nil, let catchUpPredicate {
+            catchUp(predicate: catchUpPredicate)
+        }
+    }
+
+    /// Replays the most recent line that yields a source rate. Runs off
+    /// `queue`: `log show` takes a few seconds and must not delay `stop()`.
+    private func catchUp(predicate: String) {
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            let proc = Process()
+            proc.executableURL = URL(fileURLWithPath: "/usr/bin/log")
+            proc.arguments = ["show", "--style", "ndjson", "--last", Self.catchUpWindow, "--predicate", predicate]
+            let pipe = Pipe()
+            proc.standardOutput = pipe
+            proc.standardError = FileHandle.nullDevice
+            guard (try? proc.run()) != nil else { return }
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            proc.waitUntilExit()
+
+            let lines = String(decoding: data, as: UTF8.self).split(separator: "\n").map(String.init)
+            guard let latest = LogStreamController.latestSourceRateLine(in: lines) else { return }
+            self?.queue.async {
+                guard let self, !self.isStopping else { return }
+                self.handleLogLine(latest)
+            }
         }
     }
 
@@ -276,8 +311,37 @@ final class LogStreamController {
         // Other JSON fields are metadata, not audio-format messages.
     }
 
+    /// Core Audio logs every converter Music builds. Only the decoder's input
+    /// is not yet Float32, so only its "from" rate is the source rate; the
+    /// others feed the device and state the device's current rate.
+    static func isDeviceSideConverter(_ message: String) -> Bool {
+        guard message.contains("Created a new in process converter"),
+              let from = message.range(of: "from "),
+              let to = message.range(of: " to ", range: from.upperBound..<message.endIndex) else { return false }
+        return message[from.upperBound..<to.lowerBound].contains("Float32")
+    }
+
+    /// Takes the message alone: an ndjson line's `formatString` also says "from … to".
+    static func isSourceRateLine(_ message: String) -> Bool {
+        message.contains("Created a new in process converter") && !isDeviceSideConverter(message)
+    }
+
+    static func latestSourceRateLine(in ndjsonLines: [String]) -> String? {
+        ndjsonLines.last { eventMessage(of: $0).map(isSourceRateLine) ?? false }
+    }
+
+    private static func eventMessage(of line: String) -> String? {
+        guard let data = line.data(using: .utf8),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { return nil }
+        return json["eventMessage"] as? String
+    }
+
     @discardableResult
     private func processMessage(_ message: String) -> Bool {
+        if Self.isDeviceSideConverter(message) {
+            return true
+        }
+
         // Not a rate vote: the same line also carries `sampleRate:`, which
         // falls through to the rate parsers below.
         if let format = TrackFormat(logMessage: message) {
