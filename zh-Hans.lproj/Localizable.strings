@@ -55,7 +55,7 @@
 "Parametric EQ" = "参数均衡器";
 "Update available — %@" = "有可用更新 — %@";
 "Checking for updates…" = "正在检查更新…";
-"SyncHz is up to date" = "SyncHz 已是最新版本";
+"Hertzwise is up to date" = "Hertzwise 已是最新版本";
 "Update check failed: %@" = "检查更新失败：%@";
 "Check for Updates…" = "检查更新…";
 "EQ is on — playback is no longer bit-perfect" = "均衡器已开启 — 播放不再是 bit-perfect";
@@ -103,11 +103,11 @@
 "Fitted at" = "拟合采样率";
 "Fitted at %@" = "拟合于 %@";
 "Playback sample rate" = "播放采样率";
-"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. SyncHz reproduces this response at every playback rate." = "该预设拟合时使用的采样率——AutoEq 公开的预设为 44.1 kHz。SyncHz 会在任何播放采样率下还原这一响应。";
+"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "该预设拟合时使用的采样率——AutoEq 公开的预设为 44.1 kHz。Hertzwise 会在任何播放采样率下还原这一响应。";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "已从 %2$@ 导入 %1$ld 个频段（%3$ld 个数值被限制在支持范围内）。";
 
 /* EQ audio-input permission */
-"SyncHz needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "SyncHz 需要音频输入权限才能运行均衡器。请在“系统设置 → 隐私与安全性 → 麦克风”中允许。";
+"Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Hertzwise 需要音频输入权限才能运行均衡器。请在“系统设置 → 隐私与安全性 → 麦克风”中允许。";
 "No audio from Apple Music is reaching the EQ." = "没有来自 Apple Music 的音频进入均衡器。";
 
 /* Fixed EQ processing rate */
@@ -119,4 +119,3 @@
 "Hold at %@" = "固定在 %@";
 
 /* Header tag: the app's Chinese name */
-"調律" = "同频";

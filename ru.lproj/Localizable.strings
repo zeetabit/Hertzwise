@@ -1,4 +1,4 @@
-/* SyncHz — Russian */
+/* Hertzwise — Russian */
 "Equalizer on — Apple Music is no longer bit-perfect." = "Эквалайзер включён — Apple Music больше не bit-perfect.";
 "No filters found in %1$@." = "В %1$@ не найдено фильтров.";
 "No bands. Add one, or import an AutoEQ ParametricEQ.txt." = "Нет полос. Добавьте полосу или импортируйте ParametricEQ.txt из AutoEQ.";
@@ -61,7 +61,7 @@
 "Choose an AutoEQ ParametricEQ.txt file" = "Выберите файл ParametricEQ.txt из AutoEQ";
 "Equalizer" = "Эквалайзер";
 "Auto switch" = "Автопереключение";
-"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. SyncHz reproduces this response at every playback rate." = "Частота дискретизации, на которую рассчитан этот пресет (44.1 kHz для опубликованных пресетов AutoEq). SyncHz точно повторяет эту АЧХ на любой частоте воспроизведения.";
+"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "Частота дискретизации, на которую рассчитан этот пресет (44.1 kHz для опубликованных пресетов AutoEq). Hertzwise точно повторяет эту АЧХ на любой частоте воспроизведения.";
 "Update check failed: %@" = "Ошибка проверки обновлений: %@";
 "Follow System" = "Как в системе";
 "Failed to switch output sample rate" = "Не удалось переключить частоту выхода";
@@ -83,7 +83,7 @@
 "Source" = "Источник";
 "Import AutoEQ…" = "Импорт AutoEQ…";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "Импортировано полос из %2$@: %1$ld (значений, ограниченных допустимым диапазоном: %3$ld).";
-"SyncHz is up to date" = "Установлена последняя версия SyncHz";
+"Hertzwise is up to date" = "Установлена последняя версия Hertzwise";
 "Failed to switch output device" = "Не удалось переключить устройство вывода";
 "Log stream started" = "Поток журнала запущен";
 "Previous track" = "Предыдущий трек";
@@ -106,4 +106,4 @@
 "Log parser disabled" = "Анализ журнала выключен";
 "Flat" = "Ровная АЧХ";
 "Equalizer active" = "Эквалайзер работает";
-"SyncHz needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Для работы EQ приложению SyncHz нужен доступ к аудиовходу. Разрешите его в разделе «Системные настройки → Конфиденциальность и безопасность → Микрофон».";
+"Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Для работы EQ приложению Hertzwise нужен доступ к аудиовходу. Разрешите его в разделе «Системные настройки → Конфиденциальность и безопасность → Микрофон».";

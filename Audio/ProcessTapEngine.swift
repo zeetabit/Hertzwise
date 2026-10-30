@@ -19,9 +19,9 @@ import Synchronization
 // Control methods are serialized on `controlQueue`; render runs on the audio
 // thread. That manual discipline is what `@unchecked Sendable` asserts here.
 final class ProcessTapEngine: @unchecked Sendable {
-    private let log = Logger(subsystem: "com.garykong.choritsu", category: "EQEngine")
+    private let log = Logger(subsystem: "io.github.zeetabit.hertzwise", category: "EQEngine")
     private let musicBundleID = "com.apple.Music"
-    private let aggregateUID = "com.garykong.choritsu.eq-aggregate"
+    private let aggregateUID = "io.github.zeetabit.hertzwise.eq-aggregate"
 
     private let processor = BiquadProcessor()
 
@@ -95,7 +95,7 @@ final class ProcessTapEngine: @unchecked Sendable {
     /// Serializes all engine control (start/stop/apply) and the rate-change
     /// listener off the main thread, so toggling the EQ never blocks the UI on
     /// Core Audio device creation.
-    let controlQueue = DispatchQueue(label: "com.garykong.choritsu.eq.control")
+    let controlQueue = DispatchQueue(label: "io.github.zeetabit.hertzwise.eq.control")
 
     private(set) var isRunning = false
     private(set) var lastError: String?
@@ -158,7 +158,7 @@ final class ProcessTapEngine: @unchecked Sendable {
         }
         guard let confirmed else {
             stop()
-            return fail("Unsupported Core Audio stream format. SyncHz requires matching Float32 PCM streams.")
+            return fail("Unsupported Core Audio stream format. Hertzwise requires matching Float32 PCM streams.")
         }
         let tapStream = confirmed.tap
         let capturedOutputFormat = confirmed.output
@@ -509,7 +509,7 @@ final class ProcessTapEngine: @unchecked Sendable {
     /// here), which no other device rate could match.
     private func createTap(processObject: AudioObjectID, deviceUID: String) -> AudioObjectID? {
         let description = CATapDescription(processes: [processObject], deviceUID: deviceUID, stream: 0)
-        description.name = "SyncHz EQ Tap"
+        description.name = "Hertzwise EQ Tap"
         description.isPrivate = true
         description.muteBehavior = .muted   // silence Music's own output; we re-render
         var tap = AudioObjectID(kAudioObjectUnknown)
@@ -523,7 +523,7 @@ final class ProcessTapEngine: @unchecked Sendable {
 
     private func createAggregate(tapUID: String, outputUID: String) -> AudioObjectID? {
         let description: [String: Any] = [
-            kAudioAggregateDeviceNameKey as String: "SyncHz EQ",
+            kAudioAggregateDeviceNameKey as String: "Hertzwise EQ",
             kAudioAggregateDeviceUIDKey as String: aggregateUID,
             kAudioAggregateDeviceIsPrivateKey as String: true,
             kAudioAggregateDeviceIsStackedKey as String: false,

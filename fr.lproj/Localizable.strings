@@ -1,4 +1,4 @@
-/* SyncHz — French */
+/* Hertzwise — French */
 "Equalizer on — Apple Music is no longer bit-perfect." = "Égaliseur activé — Apple Music n’est plus bit-perfect.";
 "No filters found in %1$@." = "Aucun filtre trouvé dans %1$@.";
 "No bands. Add one, or import an AutoEQ ParametricEQ.txt." = "Aucune bande. Ajoutez-en une ou importez un ParametricEQ.txt d’AutoEQ.";
@@ -61,7 +61,7 @@
 "Choose an AutoEQ ParametricEQ.txt file" = "Choisissez un fichier ParametricEQ.txt d’AutoEQ";
 "Equalizer" = "Égaliseur";
 "Auto switch" = "Changement auto";
-"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. SyncHz reproduces this response at every playback rate." = "La fréquence d’échantillonnage pour laquelle ce préréglage a été ajusté — 44.1 kHz pour les préréglages publiés par AutoEq. SyncHz reproduit cette réponse à toutes les fréquences de lecture.";
+"The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "La fréquence d’échantillonnage pour laquelle ce préréglage a été ajusté — 44.1 kHz pour les préréglages publiés par AutoEq. Hertzwise reproduit cette réponse à toutes les fréquences de lecture.";
 "Update check failed: %@" = "Échec de la recherche de mises à jour : %@";
 "Follow System" = "Langue du système";
 "Failed to switch output sample rate" = "Échec du changement de fréquence de sortie";
@@ -83,7 +83,7 @@
 "Source" = "Source";
 "Import AutoEQ…" = "Importer AutoEQ…";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "%1$ld bandes importées depuis %2$@ (%3$ld valeurs ramenées à la plage prise en charge).";
-"SyncHz is up to date" = "SyncHz est à jour";
+"Hertzwise is up to date" = "Hertzwise est à jour";
 "Failed to switch output device" = "Échec du changement de périphérique de sortie";
 "Log stream started" = "Flux du journal démarré";
 "Previous track" = "Morceau précédent";
@@ -106,4 +106,4 @@
 "Log parser disabled" = "Analyse du journal désactivée";
 "Flat" = "Plat";
 "Equalizer active" = "Égaliseur actif";
-"SyncHz needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "SyncHz a besoin d’accéder à l’entrée audio pour faire fonctionner l’EQ. Autorisez-le dans Réglages Système → Confidentialité et sécurité → Micro.";
+"Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Hertzwise a besoin d’accéder à l’entrée audio pour faire fonctionner l’EQ. Autorisez-le dans Réglages Système → Confidentialité et sécurité → Micro.";

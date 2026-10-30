@@ -153,7 +153,7 @@ final class EQModel {
     private func failAudioInputAccess() {
         OutputRateLock.shared.heldRate = nil
         isEnabled = false
-        statusMessage = loc("SyncHz needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone.")
+        statusMessage = loc("Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone.")
     }
 
     private func startEngine() {
@@ -382,9 +382,9 @@ final class EQModel {
         let manager = FileManager.default
         guard let base = manager.urls(for: .applicationSupportDirectory,
                                       in: .userDomainMask).first else { return nil }
-        // Still "Choritsu" — the app's former name — so profiles saved by
-        // earlier versions keep loading after the rename to SyncHz.
-        let folder = base.appendingPathComponent("Choritsu", isDirectory: true)
+        // Not upstream SyncHz's "Choritsu" folder: the two apps can be
+        // installed side by side and must not overwrite each other's profiles.
+        let folder = base.appendingPathComponent("Hertzwise", isDirectory: true)
         try? manager.createDirectory(at: folder, withIntermediateDirectories: true)
         return folder.appendingPathComponent("eq-profiles.json")
     }

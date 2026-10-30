@@ -63,7 +63,7 @@ final class SampleRateModel {
         let weight: Int
     }
 
-    private let logVoteQueue = DispatchQueue(label: "com.garykong.choritsu.logvotes")
+    private let logVoteQueue = DispatchQueue(label: "io.github.zeetabit.hertzwise.logvotes")
     @ObservationIgnored private var pendingLogVotes: [LogVote] = []
     @ObservationIgnored private var logFlushScheduled = false
     private static let logFlushInterval: TimeInterval = 0.05

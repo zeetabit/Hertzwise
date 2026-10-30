@@ -54,7 +54,7 @@ private struct RateMark: View {
             RoundedRectangle(cornerRadius: corner, style: .continuous)
                 .strokeBorder(.white.opacity(0.10), lineWidth: 0.5)
         )
-        .accessibilityLabel(Text(verbatim: "SyncHz"))
+        .accessibilityLabel(Text(verbatim: "Hertzwise"))
     }
 }
 
@@ -209,13 +209,8 @@ private struct PanelHeader: View {
     var body: some View {
         HStack(spacing: 8) {
             RateMark(size: 22)
-            Text(verbatim: "SyncHz")
+            Text(verbatim: "Hertzwise")
                 .font(.system(size: 13, weight: .semibold))
-            // The small tag beside the name: 調律 ("tuning"), the app's first
-            // name, in most languages; its Chinese name 同频 in Chinese.
-            Text("調律")
-                .font(.system(size: 11))
-                .foregroundStyle(Theme.textMuted)
 
             Spacer()
 
@@ -286,7 +281,7 @@ private struct PanelHeader: View {
         case .checking:
             Text("Checking for updates…")
         case .upToDate:
-            Text("SyncHz is up to date")
+            Text("Hertzwise is up to date")
         case let .failed(message):
             Text("Update check failed: \(message)")
         case .idle:
