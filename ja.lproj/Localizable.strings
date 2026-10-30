@@ -120,3 +120,4 @@
 
 "Tidal locked at %@" = "Tidal で %@ に確定";
 "Tidal is in exclusive mode; not switching" = "Tidal が排他モードのため切り替えません";
+"Sources" = "ソース";

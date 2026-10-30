@@ -110,3 +110,4 @@
 
 "Tidal locked at %@" = "Tidal: %@ 확정";
 "Tidal is in exclusive mode; not switching" = "Tidal이 단독 모드라 전환하지 않음";
+"Sources" = "소스";

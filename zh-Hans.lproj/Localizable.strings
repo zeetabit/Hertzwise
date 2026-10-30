@@ -122,3 +122,4 @@
 
 "Tidal locked at %@" = "Tidal 已锁定 %@";
 "Tidal is in exclusive mode; not switching" = "Tidal 处于独占模式，不切换";
+"Sources" = "来源";

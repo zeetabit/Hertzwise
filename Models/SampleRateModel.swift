@@ -4,6 +4,29 @@ import Combine
 import CoreAudio
 import Observation
 
+/// Which players Hertzwise follows. A disabled player costs nothing: no log
+/// reader, no AppleScript and so no permission prompt. Until the user chooses,
+/// Tidal follows whether it is installed and Apple Music, which every Mac has,
+/// stays off.
+enum PlayerSources {
+    private static let tidalKey = "source.tidal"
+    private static let appleMusicKey = "source.appleMusic"
+
+    static var tidal: Bool {
+        get { UserDefaults.standard.object(forKey: tidalKey) as? Bool ?? isInstalled("com.tidal.desktop") }
+        set { UserDefaults.standard.set(newValue, forKey: tidalKey) }
+    }
+
+    static var appleMusic: Bool {
+        get { UserDefaults.standard.object(forKey: appleMusicKey) as? Bool ?? false }
+        set { UserDefaults.standard.set(newValue, forKey: appleMusicKey) }
+    }
+
+    private static func isInstalled(_ bundleID: String) -> Bool {
+        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
+    }
+}
+
 /// `@Observable`, so each panel card re-renders only for the properties it
 /// reads. The 1 Hz poll writes through `assign`, which skips unchanged values —
 /// every write to an observed property would otherwise invalidate its readers.
@@ -32,6 +55,20 @@ final class SampleRateModel {
     var logStatusMessage: String = ""
     var statusMessage: String = ""
     var autoSwitchEnabled: Bool = true
+    var tidalEnabled = PlayerSources.tidal {
+        didSet {
+            PlayerSources.tidal = tidalEnabled
+            if logParserEnabled { startLogParser() }
+        }
+    }
+    var appleMusicEnabled = PlayerSources.appleMusic {
+        didSet {
+            PlayerSources.appleMusic = appleMusicEnabled
+            if appleMusicEnabled { requestMediaAccess() }
+            if logParserEnabled { startLogParser() }
+            updateState()
+        }
+    }
     var logParserEnabled: Bool = true {
         didSet {
             if logParserEnabled {
@@ -50,6 +87,8 @@ final class SampleRateModel {
     private let tidalLogController = TidalPlayerLogController()
     private let audioController = AudioDeviceController()
     @ObservationIgnored private var tidalSubscription: AnyCancellable?
+    @ObservationIgnored private var tidalStateSubscription: AnyCancellable?
+    @ObservationIgnored private var tidalPlayback = TidalPlaybackState()
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var deviceObservation: AudioDeviceObservation?
     @ObservationIgnored private var musicObserver: NSObjectProtocol?
@@ -85,6 +124,14 @@ final class SampleRateModel {
     @ObservationIgnored private var trackFormatAt: Date?
 
     init() {
+        if appleMusicEnabled {
+            requestMediaAccess()
+        }
+        startLogParser()
+        startPolling()
+    }
+
+    private func requestMediaAccess() {
         MediaAuthorizationController.requestIfNeeded { granted in
             DispatchQueue.main.async {
                 if !granted {
@@ -92,8 +139,6 @@ final class SampleRateModel {
                 }
             }
         }
-        startLogParser()
-        startPolling()
     }
 
     var menuBarTitle: String {
@@ -105,17 +150,20 @@ final class SampleRateModel {
     }
 
     func togglePlayPause() {
+        guard appleMusicEnabled else { return }
         isPlaying.toggle()
         musicController.send(.playPause)
         scheduleQuickRefresh()
     }
 
     func nextTrack() {
+        guard appleMusicEnabled else { return }
         musicController.send(.nextTrack)
         scheduleQuickRefresh()
     }
 
     func previousTrack() {
+        guard appleMusicEnabled else { return }
         musicController.send(.previousTrack)
         scheduleQuickRefresh()
     }
@@ -204,7 +252,8 @@ final class SampleRateModel {
         musicObserver = DistributedNotificationCenter.default().addObserver(
             forName: Self.musicPlayerInfo, object: nil, queue: .main
         ) { [weak self] _ in
-            self?.updateState()
+            guard let self, self.appleMusicEnabled else { return }
+            self.updateState()
         }
         scheduleRefresh()
     }
@@ -269,6 +318,11 @@ final class SampleRateModel {
     /// Refreshes the Music.app fallback metadata without blocking. At most one
     /// fetch is ever in flight; the result lands on the main queue.
     private func refreshTrackInfoIfNeeded() {
+        guard appleMusicEnabled else {
+            latestTrackInfo = nil
+            latestTrackInfoError = nil
+            return
+        }
         guard !trackInfoFetchInFlight else { return }
         trackInfoFetchInFlight = true
 
@@ -295,6 +349,19 @@ final class SampleRateModel {
         var resolvedTitle = info?.title ?? ""
         if resolvedTitle.isEmpty || resolvedTitle == "Unknown", let fallbackTrack {
             resolvedTitle = fallbackTrack.title
+        }
+
+        if resolvedTitle.isEmpty, tidalEnabled, tidalPlayback.isPlaying {
+            assign(\.currentTrackTitle, "Tidal")
+            assign(\.artistName, "")
+            assign(\.albumName, "")
+            assign(\.isPlaying, true)
+            assign(\.elapsedSeconds, nil)
+            assign(\.durationSeconds, nil)
+            updateArtwork(nil)
+            updateCurrentSampleRateDisplay()
+            assign(\.statusMessage, "")
+            return
         }
 
         guard !resolvedTitle.isEmpty else {
@@ -404,6 +471,7 @@ final class SampleRateModel {
     /// start a second one; the running fetch re-issues itself for the new
     /// track when it lands, so the new track is never left without a cover.
     private func fetchPendingArtwork() {
+        guard appleMusicEnabled else { return }
         guard !artworkFetchInFlight, let title = pendingArtworkTitle else { return }
         artworkFetchInFlight = true
 
@@ -465,14 +533,30 @@ final class SampleRateModel {
             }
         }
 
-        logController.start()
+        if appleMusicEnabled {
+            logController.start()
+        } else {
+            logController.stop()
+        }
 
         tidalSubscription = tidalLogController.formatStarted
             .receive(on: DispatchQueue.main)
             .sink { [weak self] playback in
                 self?.handleTidalFormatStarted(playback)
             }
-        tidalLogController.start()
+        tidalStateSubscription = tidalLogController.state
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] playback in
+                guard let self else { return }
+                let changed = playback.isPlaying != self.tidalPlayback.isPlaying
+                self.tidalPlayback = playback
+                if changed { self.updateState() }
+            }
+        if tidalEnabled {
+            tidalLogController.start()
+        } else {
+            tidalLogController.stop()
+        }
     }
 
     /// Tidal logs the exact format it plays, so its rate locks directly

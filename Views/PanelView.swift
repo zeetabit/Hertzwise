@@ -222,6 +222,10 @@ private struct PanelHeader: View {
             Menu {
                 Toggle("Auto switch", isOn: $model.autoSwitchEnabled)
                 Toggle("Log parser", isOn: $model.logParserEnabled)
+                Section("Sources") {
+                    Toggle(isOn: $model.tidalEnabled) { Text(verbatim: "Tidal") }
+                    Toggle(isOn: $model.appleMusicEnabled) { Text(verbatim: "Apple Music") }
+                }
                 Divider()
                 Button("Refresh now") { model.refreshNow() }
                 Button("Restart log parser") { model.restartLogParser() }
@@ -553,6 +557,9 @@ private struct NowPlayingCard: View {
             .buttonStyle(GhostButtonStyle(size: 28))
             .accessibilityLabel("Next track")
         }
+        // The buttons drive Apple Music through AppleScript.
+        .disabled(!model.appleMusicEnabled)
+        .opacity(model.appleMusicEnabled ? 1 : 0.4)
     }
 }
 
