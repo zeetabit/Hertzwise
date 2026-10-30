@@ -71,17 +71,41 @@ of each key somewhere safe (a password manager):
 1. Import the identity `.p12` into the login keychain (double-click it), and
    the Sparkle key with `generate_keys --account hertzwise -f sparkle-key.txt`.
 2. Optional, for local builds signed like releases (one set of permissions
-   for Xcode builds and the installed app): the project reads two variables,
-   `HERTZWISE_CODE_SIGN_STYLE` and `HERTZWISE_ENTITLEMENTS`, which default to
-   automatic signing and `SampleRateSwitcher.entitlements`. Set them in an
-   untracked xcconfig used as the project's base configuration:
+   for Xcode builds and the installed app). This setup stays local; nothing
+   of it is committed.
 
-   ```
-   DEVELOPMENT_TEAM =
-   HERTZWISE_CODE_SIGN_STYLE = Manual
-   CODE_SIGN_IDENTITY = Hertzwise
-   HERTZWISE_ENTITLEMENTS = Signing.local.entitlements
-   ```
+   The project reads two variables, `HERTZWISE_CODE_SIGN_STYLE` and
+   `HERTZWISE_ENTITLEMENTS`, which default to automatic signing and
+   `SampleRateSwitcher.entitlements`. To sign with the "Hertzwise" identity:
 
-   where `Signing.local.entitlements` is `SampleRateSwitcher.entitlements`
-   plus `com.apple.security.cs.disable-library-validation` (see above).
+   1. In the repository root, create `Signing.local.xcconfig`:
+
+      ```
+      DEVELOPMENT_TEAM =
+      HERTZWISE_CODE_SIGN_STYLE = Manual
+      CODE_SIGN_IDENTITY = Hertzwise
+      HERTZWISE_ENTITLEMENTS = Signing.local.entitlements
+      ```
+
+   2. Create `Signing.local.entitlements`, the project's entitlements plus the
+      library-validation exception (see above):
+
+      ```bash
+      cp SampleRateSwitcher.entitlements Signing.local.entitlements
+      /usr/libexec/PlistBuddy -c 'Add :com.apple.security.cs.disable-library-validation bool true' \
+          Signing.local.entitlements
+      ```
+
+   3. Keep both out of git for this clone only:
+      `printf 'Signing.local.xcconfig\nSigning.local.entitlements\n' >> .git/info/exclude`.
+   4. Link the xcconfig: in Xcode, add `Signing.local.xcconfig` to the project
+      without adding it to a target, then select the project (not the target)
+      → Info → Configurations, and set Debug and Release to
+      `Signing.local.xcconfig`. This edits `project.pbxproj` locally.
+   5. Never commit that link: when committing other project changes, stage
+      them without it (`git add -p SampleRateSwitcher.xcodeproj/project.pbxproj`
+      and skip the `Signing.local.xcconfig` lines).
+
+   Check with `xcodebuild -showBuildSettings`: `CODE_SIGN_IDENTITY` should
+   read `Hertzwise` and `CODE_SIGN_STYLE` `Manual`. Without these files and the
+   link, builds use the defaults.
