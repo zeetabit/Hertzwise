@@ -1,7 +1,43 @@
 import Foundation
 
+/// Runs a child command that cannot outlive this app.
+///
+/// macOS has no "kill me when my parent dies", and a `log stream` that is
+/// quiet never writes to its closed pipe, so after a crash, a Force Quit or an
+/// Xcode stop it used to run on forever. The command now runs under `/bin/sh`
+/// with a pipe as stdin whose write end only this app holds. When the app
+/// exits, however it exits, the kernel closes that end; the shell's blocked
+/// `read` sees end-of-file and kills the command. Waiting costs no CPU.
+enum ChildLifeline {
+    static let script = """
+        exec 3<&0
+        "$@" </dev/null &
+        child=$!
+        { while read -r _; do :; done; kill "$child" 2>/dev/null; } <&3 &
+        watcher=$!
+        exec 3<&-
+        trap 'kill "$child" "$watcher" 2>/dev/null; exit 143' TERM INT HUP
+        wait "$child"
+        status=$?
+        kill "$watcher" 2>/dev/null
+        exit "$status"
+        """
+
+    /// Sets `process` up to run `command` behind the lifeline. Keep the
+    /// returned handle open for as long as the command should run; closing it
+    /// stops the command.
+    static func attach(to process: Process, command: [String]) -> FileHandle {
+        let lifeline = Pipe()
+        process.executableURL = URL(fileURLWithPath: "/bin/sh")
+        process.arguments = ["-c", script, "sh"] + command
+        process.standardInput = lifeline
+        return lifeline.fileHandleForWriting
+    }
+}
+
 final class LogStreamController {
     private var process: Process?
+    private var lifeline: FileHandle?
     private var outputHandle: FileHandle?
     private var errorHandle: FileHandle?
     private var buffer = Data()
@@ -72,9 +108,8 @@ final class LogStreamController {
     /// Must be called on `queue`.
     private func launchStream() {
         let proc = Process()
-        proc.executableURL = URL(fileURLWithPath: "/usr/bin/log")
-        proc.arguments = [
-            "stream",
+        let lifeline = ChildLifeline.attach(to: proc, command: [
+            "/usr/bin/log", "stream",
             // `ndjson` emits one compact JSON object per line. `json` emits
             // pretty-printed multi-line objects, which cannot be framed by
             // newline — every `json` event used to be split across many bogus
@@ -82,7 +117,7 @@ final class LogStreamController {
             "--style", "ndjson",
             "--level", logLevel,
             "--predicate", predicate
-        ]
+        ])
 
         let outPipe = Pipe()
         let errPipe = Pipe()
@@ -128,6 +163,7 @@ final class LogStreamController {
         do {
             try proc.run()
             process = proc
+            self.lifeline = lifeline
             launchedAt = Date()
             DispatchQueue.main.async { self.onStatus?("Log stream started") }
         } catch {
@@ -184,6 +220,8 @@ final class LogStreamController {
         errorHandle = nil
         launchedAt = nil
         buffer.removeAll(keepingCapacity: false)
+        try? lifeline?.close()
+        lifeline = nil
 
         if let process {
             // Clear first: terminating fires the handler, and we do not want

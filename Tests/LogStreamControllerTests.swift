@@ -121,3 +121,63 @@ final class LogStreamControllerTests: XCTestCase {
         return rates
     }
 }
+
+final class ChildLifelineTests: XCTestCase {
+    /// Starts a command that prints its pid and then becomes a 30 s sleep.
+    private func launch() throws -> (process: Process, lifeline: FileHandle, childPID: pid_t) {
+        let process = Process()
+        let lifeline = ChildLifeline.attach(to: process, command: ["/bin/sh", "-c", "echo $$; exec /bin/sleep 30"])
+        let output = Pipe()
+        process.standardOutput = output
+        try process.run()
+
+        var text = ""
+        let deadline = Date().addingTimeInterval(3)
+        while !text.contains("\n"), Date() < deadline {
+            text += String(decoding: output.fileHandleForReading.availableData, as: UTF8.self)
+        }
+        let pid = try XCTUnwrap(pid_t(text.trimmingCharacters(in: .whitespacesAndNewlines)))
+        XCTAssertTrue(isAlive(pid))
+        return (process, lifeline, pid)
+    }
+
+    private func isAlive(_ pid: pid_t) -> Bool {
+        kill(pid, 0) == 0
+    }
+
+    private func waitUntilGone(_ pid: pid_t, file: StaticString = #filePath, line: UInt = #line) {
+        let deadline = Date().addingTimeInterval(3)
+        while isAlive(pid), Date() < deadline {
+            usleep(20_000)
+        }
+        XCTAssertFalse(isAlive(pid), "child \(pid) outlived its lifeline", file: file, line: line)
+    }
+
+    /// What the kernel does when the app dies, however it dies.
+    func testClosingTheLifelineStopsTheCommand() throws {
+        let launched = try launch()
+        try launched.lifeline.close()
+        waitUntilGone(launched.childPID)
+        launched.process.waitUntilExit()
+    }
+
+    /// A deliberate stop: `Process.terminate()` sends SIGTERM to the shell.
+    func testTerminatingTheShellStopsTheCommand() throws {
+        let launched = try launch()
+        launched.process.terminate()
+        waitUntilGone(launched.childPID)
+        launched.process.waitUntilExit()
+        try launched.lifeline.close()
+    }
+
+    /// A command that ends on its own ends the shell with its status, so the
+    /// restart logic still sees the exit.
+    func testCommandExitEndsTheShellWithItsStatus() throws {
+        let process = Process()
+        let lifeline = ChildLifeline.attach(to: process, command: ["/bin/sh", "-c", "exit 7"])
+        try process.run()
+        process.waitUntilExit()
+        XCTAssertEqual(process.terminationStatus, 7)
+        try lifeline.close()
+    }
+}
