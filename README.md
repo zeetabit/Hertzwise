@@ -53,6 +53,8 @@ open SampleRateSwitcher.xcodeproj
 
 Needs Xcode 26 or later. In an existing clone, run `git submodule update --init` once.
 
+How the audio path works, and why: [docs/audio-engine.md](https://github.com/zeetabit/Hertzwise/blob/main/docs/audio-engine.md). Releases, signing and the update keys: [docs/releasing.md](https://github.com/zeetabit/Hertzwise/blob/main/docs/releasing.md).
+
 ### Updating the MediaRemote adapter
 
 Track info and playback controls come from [mediaremote-adapter](https://github.com/ungive/mediaremote-adapter), pinned as a submodule in `Vendor/mediaremote-adapter`. Updates are deliberate:
