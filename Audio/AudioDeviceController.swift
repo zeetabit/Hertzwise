@@ -10,8 +10,31 @@ struct OutputDeviceInfo {
 
 struct AudioOutputDevice: Identifiable, Hashable {
     let id: AudioDeviceID
+    let uid: String
     let name: String
     let iconName: String
+}
+
+/// Per output device: whether Hertzwise applies the Mac's volume to the
+/// samples, for DACs that accept a volume from the Mac but ignore it.
+enum HostVolumeControl {
+    private static let key = "volumeControl.devices"
+    /// Known to ignore the Mac's volume, by UID prefix: on unless turned off.
+    private static let ignoresHostVolume = ["AppleUSBAudioEngine:Lotoo:PAW-S1:"]
+
+    static func isEnabled(uid: String) -> Bool {
+        stored[uid] ?? ignoresHostVolume.contains { uid.hasPrefix($0) }
+    }
+
+    static func setEnabled(_ enabled: Bool, uid: String) {
+        var devices = stored
+        devices[uid] = enabled
+        UserDefaults.standard.set(devices, forKey: key)
+    }
+
+    private static var stored: [String: Bool] {
+        UserDefaults.standard.dictionary(forKey: key) as? [String: Bool] ?? [:]
+    }
 }
 
 struct OutputVolumeInfo {
@@ -60,6 +83,8 @@ final class AudioDeviceController {
             .filter { hasOutputStreams(deviceID: $0) }
             .map { deviceID in
                 AudioOutputDevice(id: deviceID,
+                                  uid: stringProperty(objectID: deviceID,
+                                                      selector: kAudioDevicePropertyDeviceUID) ?? "",
                                   name: stringProperty(objectID: deviceID,
                                                        selector: kAudioObjectPropertyName) ?? "Unknown",
                                   iconName: transportIconName(deviceID: deviceID))
@@ -168,37 +193,6 @@ final class AudioDeviceController {
         }
 
         return OutputVolumeInfo(volume: values.reduce(0, +) / Float(values.count), settable: settable)
-    }
-
-    /// DACs that accept a volume from the Mac but ignore it, by UID prefix.
-    /// Hertzwise applies their volume to the samples instead.
-    private static let ignoresHostVolume = ["AppleUSBAudioEngine:Lotoo:PAW-S1:"]
-
-    var defaultOutputIgnoresHostVolume: Bool {
-        guard let deviceID = defaultOutputDeviceID(),
-              let uid = stringProperty(objectID: deviceID, selector: kAudioDevicePropertyDeviceUID) else { return false }
-        return Self.ignoresHostVolume.contains { uid.hasPrefix($0) }
-    }
-
-    /// The default output's volume as a linear gain, from the device's own dB
-    /// value, 0 when muted. Nil when the device has no hardware volume.
-    func outputGain() -> Float? {
-        guard let deviceID = defaultOutputDeviceID() else { return nil }
-        var muteAddress = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyMute,
-                                                     mScope: kAudioDevicePropertyScopeOutput,
-                                                     mElement: kAudioObjectPropertyElementMain)
-        var muted = UInt32(0)
-        var muteSize = UInt32(MemoryLayout<UInt32>.size)
-        if AudioObjectGetPropertyData(deviceID, &muteAddress, 0, nil, &muteSize, &muted) == noErr, muted != 0 {
-            return 0
-        }
-        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeDecibels,
-                                                 mScope: kAudioDevicePropertyScopeOutput,
-                                                 mElement: kAudioObjectPropertyElementMain)
-        var decibels = Float32(0)
-        var size = UInt32(MemoryLayout<Float32>.size)
-        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &decibels) == noErr else { return nil }
-        return min(pow(10, decibels / 20), 1)
     }
 
     func setOutputVolume(_ volume: Float) -> Bool {
@@ -546,9 +540,6 @@ extension AudioDeviceController {
                                            mElement: $0)
             }
         }
-        addresses.append(AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyMute,
-                                                    mScope: kAudioDevicePropertyScopeOutput,
-                                                    mElement: kAudioObjectPropertyElementMain))
         return addresses
     }
 }

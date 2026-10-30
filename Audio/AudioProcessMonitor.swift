@@ -3,10 +3,10 @@ import Foundation
 
 /// Reports which apps are outputting audio, from Core Audio's process objects
 /// (macOS 14.4+). Reading them needs no permission, and listeners replace
-/// polling. Calls `onChange` on the main queue with the bundle IDs of the
-/// processes whose output is running.
+/// polling. Calls `onChange` on the main queue with the processes whose
+/// output is running, by bundle ID, and the devices each plays to.
 final class AudioProcessMonitor {
-    private let onChange: (Set<String>) -> Void
+    private let onChange: ([String: Set<AudioObjectID>]) -> Void
     private var processes: [AudioObjectID] = []
     private var changePending = false
     /// One block for every registration: removal matches it by identity.
@@ -26,14 +26,20 @@ final class AudioProcessMonitor {
         mElement: kAudioObjectPropertyElementMain
     )
 
-    init(onChange: @escaping (Set<String>) -> Void) {
+    private static var devicesAddress = AudioObjectPropertyAddress(
+        mSelector: kAudioProcessPropertyDevices,
+        mScope: kAudioObjectPropertyScopeOutput,
+        mElement: kAudioObjectPropertyElementMain
+    )
+
+    init(onChange: @escaping ([String: Set<AudioObjectID>]) -> Void) {
         self.onChange = onChange
         AudioObjectAddPropertyListenerBlock(AudioObjectID(kAudioObjectSystemObject),
                                             &Self.processListAddress, .main, listener)
         bindProcesses()
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            self.onChange(self.outputtingBundleIDs())
+            self.onChange(self.outputs())
         }
     }
 
@@ -55,7 +61,7 @@ final class AudioProcessMonitor {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.changePending = false
-            self.onChange(self.outputtingBundleIDs())
+            self.onChange(self.outputs())
         }
     }
 
@@ -64,24 +70,38 @@ final class AudioProcessMonitor {
         processes = current
         for process in processes {
             AudioObjectAddPropertyListenerBlock(process, &Self.runningOutputAddress, .main, listener)
+            AudioObjectAddPropertyListenerBlock(process, &Self.devicesAddress, .main, listener)
         }
     }
 
     private func unbindProcesses() {
         for process in processes {
             AudioObjectRemovePropertyListenerBlock(process, &Self.runningOutputAddress, .main, listener)
+            AudioObjectRemovePropertyListenerBlock(process, &Self.devicesAddress, .main, listener)
         }
         processes = []
     }
 
-    private func outputtingBundleIDs() -> Set<String> {
-        Set(processes.compactMap { process in
+    private func outputs() -> [String: Set<AudioObjectID>] {
+        var result: [String: Set<AudioObjectID>] = [:]
+        for process in processes {
             var running = UInt32(0)
             var size = UInt32(MemoryLayout<UInt32>.size)
             guard AudioObjectGetPropertyData(process, &Self.runningOutputAddress, 0, nil, &size, &running) == noErr,
-                  running != 0 else { return nil }
-            return Self.bundleID(of: process)
-        })
+                  running != 0, let bundleID = Self.bundleID(of: process) else { continue }
+            result[bundleID, default: []].formUnion(Self.devices(of: process))
+        }
+        return result
+    }
+
+    private static func devices(of process: AudioObjectID) -> [AudioObjectID] {
+        var size = UInt32(0)
+        guard AudioObjectGetPropertyDataSize(process, &devicesAddress, 0, nil, &size) == noErr, size > 0 else {
+            return []
+        }
+        var devices = [AudioObjectID](repeating: 0, count: Int(size) / MemoryLayout<AudioObjectID>.size)
+        guard AudioObjectGetPropertyData(process, &devicesAddress, 0, nil, &size, &devices) == noErr else { return [] }
+        return devices
     }
 
     private static func processObjects() -> [AudioObjectID] {

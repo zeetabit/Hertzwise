@@ -647,8 +647,15 @@ private struct OutputCard: View {
             HStack(spacing: 8) {
                 Menu {
                     ForEach(model.outputDevices) { device in
-                        Button {
-                            model.selectOutputDevice(device.id)
+                        Menu {
+                            Button("Use as output") { model.selectOutputDevice(device.id) }
+                                .disabled(device.id == model.currentOutputDeviceID)
+                            // For DACs that accept the Mac's volume but ignore
+                            // it: Hertzwise then applies it to the samples.
+                            Toggle("Control volume", isOn: Binding(
+                                get: { model.volumeControlledUIDs.contains(device.uid) },
+                                set: { model.setVolumeControl($0, for: device) }
+                            ))
                         } label: {
                             if device.id == model.currentOutputDeviceID {
                                 Label(device.name, systemImage: "checkmark")
@@ -782,23 +789,26 @@ private struct StatusFooter: View {
 
     var body: some View {
         let warning = model.signalWarning
-        let lines = [model.statusMessage, warning ?? model.logStatusMessage].filter { !$0.isEmpty }
+        let lines = [model.statusMessage, model.outputNotice ?? "", warning ?? model.logStatusMessage].filter { !$0.isEmpty }
+        let warns = warning != nil || model.outputNotice != nil
         if !lines.isEmpty {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Circle()
-                    .fill(SyncState(model: model).color)
+                    .fill(warns ? Theme.warn : SyncState(model: model).color)
                     .frame(width: 6, height: 6)
                     .alignmentGuide(.firstTextBaseline) { $0[.bottom] - 1 }
                 VStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(lines.enumerated()), id: \.offset) { Text(verbatim: $0.element).lineLimit(1) }
+                    ForEach(Array(lines.enumerated()), id: \.offset) {
+                        Text(verbatim: $0.element).lineLimit(2).fixedSize(horizontal: false, vertical: true)
+                    }
                 }
             }
             .font(.system(size: 11))
-            .foregroundStyle(warning == nil ? Theme.textMuted : Theme.textPrimary)
+            .foregroundStyle(warns ? Theme.textPrimary : Theme.textMuted)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, warning == nil ? 2 : 8)
-            .padding(.vertical, warning == nil ? 0 : 5)
-            .background(warning == nil ? Color.clear : Theme.warn.opacity(0.18),
+            .padding(.horizontal, warns ? 8 : 2)
+            .padding(.vertical, warns ? 5 : 0)
+            .background(warns ? Theme.warn.opacity(0.18) : Color.clear,
                         in: RoundedRectangle(cornerRadius: Theme.controlRadius))
         }
     }

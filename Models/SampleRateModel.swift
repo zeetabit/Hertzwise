@@ -25,6 +25,8 @@ final class SampleRateModel {
     var currentOutputDeviceID: AudioDeviceID?
     var availableSampleRates: [Double] = []
     var outputVolume: Double = 0.5
+    /// The output devices whose volume Hertzwise applies to the samples, by UID.
+    var volumeControlledUIDs: Set<String> = []
     var volumeAvailable: Bool = false
     var sampleRateSourceDisplay: String = "Unknown"
     /// Codec, bit depth and tier from Music's `activeFormat` log line, when seen.
@@ -33,6 +35,9 @@ final class SampleRateModel {
     /// Set while a followed player's rate cannot be seen; the panel turns yellow.
     var signalWarning: String?
     var statusMessage: String = ""
+    /// Set while a followed player plays to a device it chose itself, other
+    /// than the Mac's output: "Use as output" cannot move it.
+    var outputNotice: String?
     var autoSwitchEnabled: Bool = true
     var tidalEnabled = PlayerSources.tidal {
         didSet {
@@ -78,10 +83,12 @@ final class SampleRateModel {
     @ObservationIgnored private var musicObserver: NSObjectProtocol?
     @ObservationIgnored private var panelVisible = false
     @ObservationIgnored private var processMonitor: AudioProcessMonitor?
-    /// The volume stage's pass-through tap. Opt-in with the `volumeTapProbe`
-    /// default while it is being proven bit-exact and cheap.
-    @ObservationIgnored private var volumeEngine: ProcessTapEngine?
+    /// The volume stage, one per connected device with "Control volume" on,
+    /// by device UID. Opt-in with the `volumeTapProbe` default until rate
+    /// changes are proven through it.
+    @ObservationIgnored private var volumeEngines: [String: ProcessTapEngine] = [:]
     @ObservationIgnored private var outputtingBundleIDs: Set<String> = []
+    @ObservationIgnored private var playbackDevices: [String: Set<AudioObjectID>] = [:]
     @ObservationIgnored private var arbiter = SourceArbiter()
     @ObservationIgnored private var appObservers: [NSObjectProtocol] = []
     /// Tidal's rate, kept apart from Music's `stableLogSampleRate` so that one
@@ -275,7 +282,9 @@ final class SampleRateModel {
     private func startPolling() {
         updateVolumeStage()
         processMonitor = AudioProcessMonitor { [weak self] bundleIDs in
-            self?.outputtingBundleIDs = bundleIDs
+            self?.outputtingBundleIDs = Set(bundleIDs.keys)
+            self?.playbackDevices = bundleIDs
+            self?.updateOutputNotice()
             self?.rearbitrate()
         }
         let workspace = NSWorkspace.shared.notificationCenter
@@ -290,8 +299,8 @@ final class SampleRateModel {
         updateState()
         deviceObservation = audioController.observeChanges { [weak self] in
             self?.updateVolumeStage()
-            self?.applyVolumeGain()
             self?.updateState()
+            self?.updateOutputNotice()
         }
         musicObserver = DistributedNotificationCenter.default().addObserver(
             forName: Self.musicPlayerInfo, object: nil, queue: .main
@@ -691,28 +700,39 @@ final class SampleRateModel {
         applyLogAutoSwitch(sampleRate: rate, deviceUID: tidalDeviceUID)
     }
 
-    /// Runs the volume stage only while the output is a DAC that ignores the
-    /// Mac's volume; every other device keeps its own volume and gets no tap.
+    /// Runs the volume stage on every connected device with "Control volume"
+    /// on, whether or not it is the system output: Tidal keeps playing to its
+    /// own device. Every other device keeps its own volume and gets no tap.
     private func updateVolumeStage() {
-        let wanted = UserDefaults.standard.bool(forKey: "volumeTapProbe")
-            && audioController.defaultOutputIgnoresHostVolume
-        if wanted, volumeEngine == nil {
-            let engine = ProcessTapEngine(source: .allButHertzwise)
-            volumeEngine = engine
-            // Before the start: the tap mutes the device's own output at once.
-            applyVolumeGain()
+        let enabled = Set(audioController.outputDevices().map(\.uid).filter { !$0.isEmpty && HostVolumeControl.isEnabled(uid: $0) })
+        assign(\.volumeControlledUIDs, enabled)
+        let wanted = UserDefaults.standard.bool(forKey: "volumeTapProbe") ? enabled : []
+        for uid in wanted where volumeEngines[uid] == nil {
+            let engine = ProcessTapEngine(source: .allButHertzwise, deviceUID: uid)
+            volumeEngines[uid] = engine
             engine.controlQueue.async { engine.start() }
-        } else if !wanted, let engine = volumeEngine {
-            volumeEngine = nil
+        }
+        for (uid, engine) in volumeEngines where !wanted.contains(uid) {
+            volumeEngines[uid] = nil
             engine.controlQueue.async { engine.stop() }
         }
     }
 
-    /// The PAW and similar DACs accept a volume from the Mac but ignore it;
-    /// the volume stage applies that same setting to the samples instead.
-    private func applyVolumeGain() {
-        guard let volumeEngine else { return }
-        volumeEngine.setGain(audioController.outputGain() ?? 1)
+    private func updateOutputNotice() {
+        let notice = PlayerSource.allCases.lazy.compactMap { source -> String? in
+            guard self.isFollowed(source),
+                  let devices = self.playbackDevices[source.audioBundleID], !devices.isEmpty,
+                  let output = self.currentOutputDeviceID, !devices.contains(output),
+                  let device = self.outputDevices.first(where: { devices.contains($0.id) }) else { return nil }
+            return L10n.format("%1$@ plays to %2$@ from its own settings, not the Mac's output", source.name, device.name)
+        }.first
+        assign(\.outputNotice, notice)
+    }
+
+    func setVolumeControl(_ enabled: Bool, for device: AudioOutputDevice) {
+        guard !device.uid.isEmpty else { return }
+        HostVolumeControl.setEnabled(enabled, uid: device.uid)
+        updateVolumeStage()
     }
 
     private var isMusicRunning: Bool {

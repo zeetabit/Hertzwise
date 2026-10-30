@@ -124,3 +124,6 @@
 "%@: log lost; not switching" = "%@：ログが途切れたため切り替えません";
 "%@: no sample rate; not switching" = "%@：サンプルレートが不明のため切り替えません";
 "Sources" = "ソース";
+"Control volume" = "音量を制御";
+"Use as output" = "出力に使用";
+"%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ は Mac の出力ではなく、自身の設定で %2$@ に再生しています";

@@ -126,3 +126,6 @@
 "%@: log lost; not switching" = "%@：日誌遺失，不切換";
 "%@: no sample rate; not switching" = "%@：無取樣率，不切換";
 "Sources" = "來源";
+"Control volume" = "控制音量";
+"Use as output" = "用作輸出";
+"%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ 依自身設定在 %2$@ 上播放，而非 Mac 的輸出";

@@ -114,3 +114,6 @@
 "%@: log lost; not switching" = "%@: log verloren; niet gewisseld";
 "%@: no sample rate; not switching" = "%@: geen samplefrequentie; niet gewisseld";
 "Sources" = "Bronnen";
+"Control volume" = "Volume regelen";
+"Use as output" = "Als uitvoer gebruiken";
+"%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ speelt af op %2$@ volgens eigen instellingen, niet de Mac-uitvoer";

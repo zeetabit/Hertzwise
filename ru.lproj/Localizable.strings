@@ -114,3 +114,6 @@
 "%@: log lost; not switching" = "%@: журнал потерян, переключение пропущено";
 "%@: no sample rate; not switching" = "%@: частота дискретизации неизвестна, переключение пропущено";
 "Sources" = "Источники";
+"Control volume" = "Управлять громкостью";
+"Use as output" = "Использовать для вывода";
+"%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ играет на %2$@ по своим настройкам, а не через выход Mac";

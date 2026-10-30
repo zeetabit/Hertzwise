@@ -30,6 +30,12 @@ final class ProcessTapEngine: @unchecked Sendable {
     }
 
     let source: Source
+    /// The device this engine renders to whatever the system output is; nil
+    /// follows the system output. The volume stage binds to its DAC: an app
+    /// such as Tidal keeps playing there after the system output moves.
+    private let boundDeviceUID: String?
+    private var gainListenerBlock: AudioObjectPropertyListenerBlock?
+    private var gainListenerDevice = AudioObjectID(kAudioObjectUnknown)
     private let log: Logger
     private let musicBundleID = "com.apple.Music"
     private let aggregateUID: String
@@ -121,8 +127,9 @@ final class ProcessTapEngine: @unchecked Sendable {
     private(set) var isRunning = false
     private(set) var lastError: String?
 
-    init(source: Source = .appleMusic) {
+    init(source: Source = .appleMusic, deviceUID: String? = nil) {
         self.source = source
+        boundDeviceUID = deviceUID
         switch source {
         case .appleMusic:
             log = Logger(subsystem: "io.github.zeetabit.hertzwise", category: "EQEngine")
@@ -159,8 +166,9 @@ final class ProcessTapEngine: @unchecked Sendable {
                 ? "Apple Music isn't running (no audio process to tap)."
                 : "Hertzwise has no Core Audio process object to exclude from the tap.")
         }
-        guard let outputDevice = defaultOutputDeviceID() else {
-            return fail("No default output device.")
+        let resolvedDevice = boundDeviceUID.map { deviceID(uid: $0) } ?? defaultOutputDeviceID()
+        guard let outputDevice = resolvedDevice else {
+            return fail("No output device.")
         }
         guard let outputUID = deviceUID(outputDevice) else {
             return fail("Couldn't read the output device UID.")
@@ -223,6 +231,9 @@ final class ProcessTapEngine: @unchecked Sendable {
         processor.requestReset()
         processor.setActive(desiredActive)
 
+        if source == .allButHertzwise {
+            setGain(deviceGain(outputDevice))
+        }
         // The first render starts at the volume already set, not ramping
         // down from full level: the tap has muted the device's own output.
         renderGain = Float(bitPattern: targetGainBits.load(ordering: .relaxed))
@@ -691,6 +702,22 @@ final class ProcessTapEngine: @unchecked Sendable {
             rateListenerBlock = block
         }
 
+        if source == .allButHertzwise {
+            let gainBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+                guard let self else { return }
+                self.setGain(self.deviceGain(device))
+            }
+            for selector in [kAudioDevicePropertyVolumeScalar, kAudioDevicePropertyMute] {
+                var gainAddress = AudioObjectPropertyAddress(mSelector: selector,
+                                                             mScope: kAudioDevicePropertyScopeOutput,
+                                                             mElement: kAudioObjectPropertyElementMain)
+                AudioObjectAddPropertyListenerBlock(device, &gainAddress, controlQueue, gainBlock)
+            }
+            gainListenerBlock = gainBlock
+            gainListenerDevice = device
+        }
+        guard boundDeviceUID == nil else { return }
+
         var defaultAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -709,6 +736,17 @@ final class ProcessTapEngine: @unchecked Sendable {
     }
 
     private func removeLifecycleListeners() {
+        if let block = gainListenerBlock, gainListenerDevice != kAudioObjectUnknown {
+            for selector in [kAudioDevicePropertyVolumeScalar, kAudioDevicePropertyMute] {
+                var address = AudioObjectPropertyAddress(mSelector: selector,
+                                                         mScope: kAudioDevicePropertyScopeOutput,
+                                                         mElement: kAudioObjectPropertyElementMain)
+                AudioObjectRemovePropertyListenerBlock(gainListenerDevice, &address, controlQueue, block)
+            }
+        }
+        gainListenerBlock = nil
+        gainListenerDevice = kAudioObjectUnknown
+
         if let block = rateListenerBlock, rateListenerDevice != kAudioObjectUnknown {
             var address = AudioObjectPropertyAddress(
                 mSelector: kAudioDevicePropertyNominalSampleRate,
@@ -934,6 +972,42 @@ final class ProcessTapEngine: @unchecked Sendable {
             AudioObjectID(kAudioObjectSystemObject), &address, 0, nil, &size, &device)
         guard status == noErr, device != kAudioObjectUnknown else { return nil }
         return device
+    }
+
+    private func deviceID(uid: String) -> AudioObjectID? {
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyTranslateUIDToDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain)
+        var cfUID = uid as CFString
+        var device = AudioObjectID(kAudioObjectUnknown)
+        var size = UInt32(MemoryLayout<AudioObjectID>.size)
+        let status = withUnsafeMutablePointer(to: &cfUID) {
+            AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &address,
+                                       UInt32(MemoryLayout<CFString>.size), $0, &size, &device)
+        }
+        guard status == noErr, device != kAudioObjectUnknown else { return nil }
+        return device
+    }
+
+    /// The device's own volume as a linear gain, from its dB value; 0 when
+    /// muted, 1 when it has no volume to read.
+    private func deviceGain(_ device: AudioObjectID) -> Float {
+        var muteAddress = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyMute,
+                                                     mScope: kAudioDevicePropertyScopeOutput,
+                                                     mElement: kAudioObjectPropertyElementMain)
+        var muted = UInt32(0)
+        var muteSize = UInt32(MemoryLayout<UInt32>.size)
+        if AudioObjectGetPropertyData(device, &muteAddress, 0, nil, &muteSize, &muted) == noErr, muted != 0 {
+            return 0
+        }
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeDecibels,
+                                                 mScope: kAudioDevicePropertyScopeOutput,
+                                                 mElement: kAudioObjectPropertyElementMain)
+        var decibels = Float32(0)
+        var size = UInt32(MemoryLayout<Float32>.size)
+        guard AudioObjectGetPropertyData(device, &address, 0, nil, &size, &decibels) == noErr else { return 1 }
+        return min(pow(10, decibels / 20), 1)
     }
 
     private func deviceUID(_ device: AudioObjectID) -> String? {

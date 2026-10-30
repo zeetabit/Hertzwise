@@ -114,3 +114,6 @@
 "%@: log lost; not switching" = "%@: log perso: nessun cambio";
 "%@: no sample rate; not switching" = "%@: nessuna frequenza di campionamento: nessun cambio";
 "Sources" = "Sorgenti";
+"Control volume" = "Controlla il volume";
+"Use as output" = "Usa come uscita";
+"%1$@ plays to %2$@ from its own settings, not the Mac's output" = "%1$@ riproduce su %2$@ secondo le proprie impostazioni, non l’uscita del Mac";
