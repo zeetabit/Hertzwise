@@ -273,11 +273,7 @@ final class SampleRateModel {
     private static let hiddenRefreshInterval: TimeInterval = 15
 
     private func startPolling() {
-        if UserDefaults.standard.bool(forKey: "volumeTapProbe") {
-            let engine = ProcessTapEngine(source: .allButHertzwise)
-            volumeEngine = engine
-            engine.controlQueue.async { engine.start() }
-        }
+        updateVolumeStage()
         processMonitor = AudioProcessMonitor { [weak self] bundleIDs in
             self?.outputtingBundleIDs = bundleIDs
             self?.rearbitrate()
@@ -293,6 +289,8 @@ final class SampleRateModel {
         }
         updateState()
         deviceObservation = audioController.observeChanges { [weak self] in
+            self?.updateVolumeStage()
+            self?.applyVolumeGain()
             self?.updateState()
         }
         musicObserver = DistributedNotificationCenter.default().addObserver(
@@ -691,6 +689,30 @@ final class SampleRateModel {
             return
         }
         applyLogAutoSwitch(sampleRate: rate, deviceUID: tidalDeviceUID)
+    }
+
+    /// Runs the volume stage only while the output is a DAC that ignores the
+    /// Mac's volume; every other device keeps its own volume and gets no tap.
+    private func updateVolumeStage() {
+        let wanted = UserDefaults.standard.bool(forKey: "volumeTapProbe")
+            && audioController.defaultOutputIgnoresHostVolume
+        if wanted, volumeEngine == nil {
+            let engine = ProcessTapEngine(source: .allButHertzwise)
+            volumeEngine = engine
+            // Before the start: the tap mutes the device's own output at once.
+            applyVolumeGain()
+            engine.controlQueue.async { engine.start() }
+        } else if !wanted, let engine = volumeEngine {
+            volumeEngine = nil
+            engine.controlQueue.async { engine.stop() }
+        }
+    }
+
+    /// The PAW and similar DACs accept a volume from the Mac but ignore it;
+    /// the volume stage applies that same setting to the samples instead.
+    private func applyVolumeGain() {
+        guard let volumeEngine else { return }
+        volumeEngine.setGain(audioController.outputGain() ?? 1)
     }
 
     private var isMusicRunning: Bool {

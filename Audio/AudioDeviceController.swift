@@ -170,6 +170,37 @@ final class AudioDeviceController {
         return OutputVolumeInfo(volume: values.reduce(0, +) / Float(values.count), settable: settable)
     }
 
+    /// DACs that accept a volume from the Mac but ignore it, by UID prefix.
+    /// Hertzwise applies their volume to the samples instead.
+    private static let ignoresHostVolume = ["AppleUSBAudioEngine:Lotoo:PAW-S1:"]
+
+    var defaultOutputIgnoresHostVolume: Bool {
+        guard let deviceID = defaultOutputDeviceID(),
+              let uid = stringProperty(objectID: deviceID, selector: kAudioDevicePropertyDeviceUID) else { return false }
+        return Self.ignoresHostVolume.contains { uid.hasPrefix($0) }
+    }
+
+    /// The default output's volume as a linear gain, from the device's own dB
+    /// value, 0 when muted. Nil when the device has no hardware volume.
+    func outputGain() -> Float? {
+        guard let deviceID = defaultOutputDeviceID() else { return nil }
+        var muteAddress = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyMute,
+                                                     mScope: kAudioDevicePropertyScopeOutput,
+                                                     mElement: kAudioObjectPropertyElementMain)
+        var muted = UInt32(0)
+        var muteSize = UInt32(MemoryLayout<UInt32>.size)
+        if AudioObjectGetPropertyData(deviceID, &muteAddress, 0, nil, &muteSize, &muted) == noErr, muted != 0 {
+            return 0
+        }
+        var address = AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyVolumeDecibels,
+                                                 mScope: kAudioDevicePropertyScopeOutput,
+                                                 mElement: kAudioObjectPropertyElementMain)
+        var decibels = Float32(0)
+        var size = UInt32(MemoryLayout<Float32>.size)
+        guard AudioObjectGetPropertyData(deviceID, &address, 0, nil, &size, &decibels) == noErr else { return nil }
+        return min(pow(10, decibels / 20), 1)
+    }
+
     func setOutputVolume(_ volume: Float) -> Bool {
         guard let deviceID = defaultOutputDeviceID(),
               let (selector, elements) = volumeAddress(deviceID: deviceID) else {
@@ -515,6 +546,9 @@ extension AudioDeviceController {
                                            mElement: $0)
             }
         }
+        addresses.append(AudioObjectPropertyAddress(mSelector: kAudioDevicePropertyMute,
+                                                    mScope: kAudioDevicePropertyScopeOutput,
+                                                    mElement: kAudioObjectPropertyElementMain))
         return addresses
     }
 }

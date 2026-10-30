@@ -95,6 +95,10 @@ final class ProcessTapEngine: @unchecked Sendable {
     // Bit-exactness evidence for `.allButHertzwise`: how many non-zero input
     // samples sit exactly on the 16- and 24-bit grids. A 16-bit track arriving
     // all on the 16-bit grid proves the tap delivers the player's own samples.
+    /// Linear gain for `.allButHertzwise`, at most 1, set from any thread.
+    private let targetGainBits = Atomic<UInt32>(Float(1).bitPattern)
+    /// The gain the last render ended at. Render thread only.
+    private var renderGain: Float = 1
     private let gridSamples = Atomic<UInt64>(0)
     private let gridOn16 = Atomic<UInt64>(0)
     private let gridOn24 = Atomic<UInt64>(0)
@@ -219,6 +223,9 @@ final class ProcessTapEngine: @unchecked Sendable {
         processor.requestReset()
         processor.setActive(desiredActive)
 
+        // The first render starts at the volume already set, not ramping
+        // down from full level: the tap has muted the device's own output.
+        renderGain = Float(bitPattern: targetGainBits.load(ordering: .relaxed))
         let startStatus = AudioDeviceStart(aggregateID, procID)
         guard startStatus == noErr else {
             stop()
@@ -388,8 +395,14 @@ final class ProcessTapEngine: @unchecked Sendable {
         }
     }
 
-    /// Copies each tap channel to the same output channel unchanged: Float32
-    /// in, Float32 out, so the device receives the players' own samples.
+    /// Sets the volume stage's gain, clamped to 0…1. A change ramps across
+    /// the next render, so it never clicks.
+    func setGain(_ gain: Float) {
+        targetGainBits.store(min(max(gain, 0), 1).bitPattern, ordering: .relaxed)
+    }
+
+    /// Copies each tap channel to the same output channel at the volume
+    /// stage's gain. At gain 1 the device receives the players' own samples.
     private func renderPassThrough(input: UnsafePointer<AudioBufferList>,
                                    output: UnsafeMutablePointer<AudioBufferList>) {
         let inList = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: input))
@@ -398,7 +411,11 @@ final class ProcessTapEngine: @unchecked Sendable {
         guard outputFrames > 0 else { return }
         let available = min(outputFrames,
                             frameCapacity(of: inList, format: inputFormat, firstBuffer: inputFirstBuffer))
+        let startGain = renderGain
+        let targetGain = Float(bitPattern: targetGainBits.load(ordering: .relaxed))
+        let step = available > 0 ? (targetGain - startGain) / Float(available) : 0
         var inPeak: Float = 0
+        var outPeak: Float = 0
         var samples: UInt64 = 0, on16: UInt64 = 0, on24: UInt64 = 0
         for channel in 0..<Int(outputFormat.mChannelsPerFrame) {
             guard let destination = channelBuffer(outList, format: outputFormat, channel: channel) else { continue }
@@ -406,7 +423,10 @@ final class ProcessTapEngine: @unchecked Sendable {
             if let source = channelBuffer(inList, format: inputFormat, channel: channel, firstBuffer: inputFirstBuffer) {
                 for index in 0..<available {
                     let sample = source.base[index * source.stride]
-                    destination.base[index * destination.stride] = sample
+                    let gain = step == 0 ? targetGain : startGain + step * Float(index + 1)
+                    let out = sample * gain
+                    destination.base[index * destination.stride] = out
+                    outPeak = max(outPeak, abs(out))
                     guard sample != 0 else { continue }
                     inPeak = max(inPeak, abs(sample))
                     samples += 1
@@ -419,9 +439,12 @@ final class ProcessTapEngine: @unchecked Sendable {
             }
             for index in copied..<outputFrames { destination.base[index * destination.stride] = 0 }
         }
+        renderGain = targetGain
         if inPeak > Float(bitPattern: inputPeakBits.load(ordering: .relaxed)) {
             inputPeakBits.store(inPeak.bitPattern, ordering: .relaxed)
-            outputPeakBits.store(inPeak.bitPattern, ordering: .relaxed)
+        }
+        if outPeak > Float(bitPattern: outputPeakBits.load(ordering: .relaxed)) {
+            outputPeakBits.store(outPeak.bitPattern, ordering: .relaxed)
         }
         gridSamples.wrappingAdd(samples, ordering: .relaxed)
         gridOn16.wrappingAdd(on16, ordering: .relaxed)
