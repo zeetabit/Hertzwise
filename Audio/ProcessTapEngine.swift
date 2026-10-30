@@ -19,9 +19,20 @@ import Synchronization
 // Control methods are serialized on `controlQueue`; render runs on the audio
 // thread. That manual discipline is what `@unchecked Sendable` asserts here.
 final class ProcessTapEngine: @unchecked Sendable {
-    private let log = Logger(subsystem: "io.github.zeetabit.hertzwise", category: "EQEngine")
+    /// What the tap captures.
+    enum Source {
+        /// Apple Music only, for the headphone EQ.
+        case appleMusic
+        /// Everything playing to the output device except Hertzwise itself,
+        /// whose own re-rendered output would otherwise loop back. For the
+        /// volume stage: copied through untouched, no EQ.
+        case allButHertzwise
+    }
+
+    let source: Source
+    private let log: Logger
     private let musicBundleID = "com.apple.Music"
-    private let aggregateUID = "io.github.zeetabit.hertzwise.eq-aggregate"
+    private let aggregateUID: String
 
     private let processor = BiquadProcessor()
 
@@ -81,6 +92,12 @@ final class ProcessTapEngine: @unchecked Sendable {
     // queue reads and resets them and logs them at notice level, so whether
     // audio arrives from the tap and leaves for the device is never a guess.
     private let renderCycles = Atomic<UInt64>(0)
+    // Bit-exactness evidence for `.allButHertzwise`: how many non-zero input
+    // samples sit exactly on the 16- and 24-bit grids. A 16-bit track arriving
+    // all on the 16-bit grid proves the tap delivers the player's own samples.
+    private let gridSamples = Atomic<UInt64>(0)
+    private let gridOn16 = Atomic<UInt64>(0)
+    private let gridOn24 = Atomic<UInt64>(0)
     private let inputPeakBits = Atomic<UInt32>(0)
     private let outputPeakBits = Atomic<UInt32>(0)
     private var healthTimer: DispatchSourceTimer?
@@ -100,6 +117,18 @@ final class ProcessTapEngine: @unchecked Sendable {
     private(set) var isRunning = false
     private(set) var lastError: String?
 
+    init(source: Source = .appleMusic) {
+        self.source = source
+        switch source {
+        case .appleMusic:
+            log = Logger(subsystem: "io.github.zeetabit.hertzwise", category: "EQEngine")
+            aggregateUID = "io.github.zeetabit.hertzwise.eq-aggregate"
+        case .allButHertzwise:
+            log = Logger(subsystem: "io.github.zeetabit.hertzwise", category: "VolumeEngine")
+            aggregateUID = "io.github.zeetabit.hertzwise.volume-aggregate"
+        }
+    }
+
     deinit {
         // The IOProc reads the scratch buffers, so it must be gone first.
         stop()
@@ -116,8 +145,15 @@ final class ProcessTapEngine: @unchecked Sendable {
         guard !isRunning else { return true }
         lastError = nil
 
-        guard let processObject = musicProcessObject() else {
-            return fail("Apple Music isn't running (no audio process to tap).")
+        let target: AudioObjectID?
+        switch source {
+        case .appleMusic: target = processObject(bundleID: musicBundleID)
+        case .allButHertzwise: target = processObject(pid: ProcessInfo.processInfo.processIdentifier)
+        }
+        guard let processObject = target else {
+            return fail(source == .appleMusic
+                ? "Apple Music isn't running (no audio process to tap)."
+                : "Hertzwise has no Core Audio process object to exclude from the tap.")
         }
         guard let outputDevice = defaultOutputDeviceID() else {
             return fail("No default output device.")
@@ -280,6 +316,10 @@ final class ProcessTapEngine: @unchecked Sendable {
 
     fileprivate func render(input: UnsafePointer<AudioBufferList>,
                             output: UnsafeMutablePointer<AudioBufferList>) {
+        if source == .allButHertzwise {
+            renderPassThrough(input: input, output: output)
+            return
+        }
         let inList = UnsafeMutableAudioBufferListPointer(
             UnsafeMutablePointer(mutating: input))
         let outList = UnsafeMutableAudioBufferListPointer(output)
@@ -346,6 +386,47 @@ final class ProcessTapEngine: @unchecked Sendable {
                 .takeUnretainedValue()
             sampleSink.append(spectrumScratch, count: spectrumFrames)
         }
+    }
+
+    /// Copies each tap channel to the same output channel unchanged: Float32
+    /// in, Float32 out, so the device receives the players' own samples.
+    private func renderPassThrough(input: UnsafePointer<AudioBufferList>,
+                                   output: UnsafeMutablePointer<AudioBufferList>) {
+        let inList = UnsafeMutableAudioBufferListPointer(UnsafeMutablePointer(mutating: input))
+        let outList = UnsafeMutableAudioBufferListPointer(output)
+        let outputFrames = frameCapacity(of: outList, format: outputFormat)
+        guard outputFrames > 0 else { return }
+        let available = min(outputFrames,
+                            frameCapacity(of: inList, format: inputFormat, firstBuffer: inputFirstBuffer))
+        var inPeak: Float = 0
+        var samples: UInt64 = 0, on16: UInt64 = 0, on24: UInt64 = 0
+        for channel in 0..<Int(outputFormat.mChannelsPerFrame) {
+            guard let destination = channelBuffer(outList, format: outputFormat, channel: channel) else { continue }
+            var copied = 0
+            if let source = channelBuffer(inList, format: inputFormat, channel: channel, firstBuffer: inputFirstBuffer) {
+                for index in 0..<available {
+                    let sample = source.base[index * source.stride]
+                    destination.base[index * destination.stride] = sample
+                    guard sample != 0 else { continue }
+                    inPeak = max(inPeak, abs(sample))
+                    samples += 1
+                    let scaled16 = sample * 32_768
+                    if scaled16 == scaled16.rounded() { on16 += 1 }
+                    let scaled24 = sample * 8_388_608
+                    if scaled24 == scaled24.rounded() { on24 += 1 }
+                }
+                copied = available
+            }
+            for index in copied..<outputFrames { destination.base[index * destination.stride] = 0 }
+        }
+        if inPeak > Float(bitPattern: inputPeakBits.load(ordering: .relaxed)) {
+            inputPeakBits.store(inPeak.bitPattern, ordering: .relaxed)
+            outputPeakBits.store(inPeak.bitPattern, ordering: .relaxed)
+        }
+        gridSamples.wrappingAdd(samples, ordering: .relaxed)
+        gridOn16.wrappingAdd(on16, ordering: .relaxed)
+        gridOn24.wrappingAdd(on24, ordering: .relaxed)
+        renderCycles.wrappingAdd(1, ordering: .relaxed)
     }
 
     /// Fills `inputScratch[0..<count]` with one output channel's source: the
@@ -481,7 +562,15 @@ final class ProcessTapEngine: @unchecked Sendable {
         let cycles = renderCycles.exchange(0, ordering: .relaxed)
         let input = Float(bitPattern: inputPeakBits.exchange(0, ordering: .relaxed))
         let output = Float(bitPattern: outputPeakBits.exchange(0, ordering: .relaxed))
-        log.notice("EQ health: \(cycles, privacy: .public) renders in 2 s, tap peak \(Self.dBFS(input), privacy: .public), output peak \(Self.dBFS(output), privacy: .public)")
+        log.notice("Health: \(cycles, privacy: .public) renders in 2 s, tap peak \(Self.dBFS(input), privacy: .public), output peak \(Self.dBFS(output), privacy: .public)")
+        if source == .allButHertzwise {
+            let samples = gridSamples.exchange(0, ordering: .relaxed)
+            let on16 = gridOn16.exchange(0, ordering: .relaxed)
+            let on24 = gridOn24.exchange(0, ordering: .relaxed)
+            if samples > 0 {
+                log.notice("Grid: \(samples, privacy: .public) samples, \(String(format: "%.2f", 100 * Double(on16) / Double(samples)), privacy: .public)% on 16-bit, \(String(format: "%.2f", 100 * Double(on24) / Double(samples)), privacy: .public)% on 24-bit")
+            }
+        }
 
         silentWindows = cycles > 0 && input == 0 ? silentWindows + 1 : 0
         let silent = silentWindows >= 3
@@ -508,8 +597,15 @@ final class ProcessTapEngine: @unchecked Sendable {
     /// stereo mixdown tap is delivered at a fixed system rate instead (48 kHz
     /// here), which no other device rate could match.
     private func createTap(processObject: AudioObjectID, deviceUID: String) -> AudioObjectID? {
-        let description = CATapDescription(processes: [processObject], deviceUID: deviceUID, stream: 0)
-        description.name = "Hertzwise EQ Tap"
+        let description: CATapDescription
+        switch source {
+        case .appleMusic:
+            description = CATapDescription(processes: [processObject], deviceUID: deviceUID, stream: 0)
+            description.name = "Hertzwise EQ Tap"
+        case .allButHertzwise:
+            description = CATapDescription(excludingProcesses: [processObject], deviceUID: deviceUID, stream: 0)
+            description.name = "Hertzwise Volume Tap"
+        }
         description.isPrivate = true
         description.muteBehavior = .muted   // silence Music's own output; we re-render
         var tap = AudioObjectID(kAudioObjectUnknown)
@@ -523,7 +619,7 @@ final class ProcessTapEngine: @unchecked Sendable {
 
     private func createAggregate(tapUID: String, outputUID: String) -> AudioObjectID? {
         let description: [String: Any] = [
-            kAudioAggregateDeviceNameKey as String: "Hertzwise EQ",
+            kAudioAggregateDeviceNameKey as String: source == .appleMusic ? "Hertzwise EQ" : "Hertzwise Volume",
             kAudioAggregateDeviceUIDKey as String: aggregateUID,
             kAudioAggregateDeviceIsPrivateKey as String: true,
             kAudioAggregateDeviceIsStackedKey as String: false,
@@ -534,7 +630,10 @@ final class ProcessTapEngine: @unchecked Sendable {
             ],
             kAudioAggregateDeviceTapListKey as String: [
                 [
-                    kAudioSubTapDriftCompensationKey as String: true,
+                    // The volume tap is bound to the output device's own
+                    // stream, so it shares its clock; drift compensation would
+                    // only resample it and cost bit-exactness.
+                    kAudioSubTapDriftCompensationKey as String: source == .appleMusic,
                     kAudioSubTapUIDKey as String: tapUID,
                 ],
             ],
@@ -773,12 +872,16 @@ final class ProcessTapEngine: @unchecked Sendable {
 
     // MARK: - Property helpers
 
-    private func musicProcessObject() -> AudioObjectID? {
+    private func processObject(bundleID: String) -> AudioObjectID? {
         guard let app = NSRunningApplication
-            .runningApplications(withBundleIdentifier: musicBundleID).first else {
+            .runningApplications(withBundleIdentifier: bundleID).first else {
             return nil
         }
-        var pid = app.processIdentifier
+        return processObject(pid: app.processIdentifier)
+    }
+
+    private func processObject(pid: pid_t) -> AudioObjectID? {
+        var pid = pid
         var address = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyTranslatePIDToProcessObject,
             mScope: kAudioObjectPropertyScopeGlobal,

@@ -78,6 +78,9 @@ final class SampleRateModel {
     @ObservationIgnored private var musicObserver: NSObjectProtocol?
     @ObservationIgnored private var panelVisible = false
     @ObservationIgnored private var processMonitor: AudioProcessMonitor?
+    /// The volume stage's pass-through tap. Opt-in with the `volumeTapProbe`
+    /// default while it is being proven bit-exact and cheap.
+    @ObservationIgnored private var volumeEngine: ProcessTapEngine?
     @ObservationIgnored private var outputtingBundleIDs: Set<String> = []
     @ObservationIgnored private var arbiter = SourceArbiter()
     @ObservationIgnored private var appObservers: [NSObjectProtocol] = []
@@ -270,6 +273,11 @@ final class SampleRateModel {
     private static let hiddenRefreshInterval: TimeInterval = 15
 
     private func startPolling() {
+        if UserDefaults.standard.bool(forKey: "volumeTapProbe") {
+            let engine = ProcessTapEngine(source: .allButHertzwise)
+            volumeEngine = engine
+            engine.controlQueue.async { engine.start() }
+        }
         processMonitor = AudioProcessMonitor { [weak self] bundleIDs in
             self?.outputtingBundleIDs = bundleIDs
             self?.rearbitrate()
