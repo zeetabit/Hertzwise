@@ -107,3 +107,6 @@
 "Flat" = "플랫";
 "Equalizer active" = "이퀄라이저 작동 중";
 "Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Hertzwise가 EQ를 실행하려면 오디오 입력 접근 권한이 필요합니다. ‘시스템 설정 → 개인정보 보호 및 보안 → 마이크’에서 허용하세요.";
+
+"Tidal locked at %@" = "Tidal: %@ 확정";
+"Tidal is in exclusive mode; not switching" = "Tidal이 단독 모드라 전환하지 않음";

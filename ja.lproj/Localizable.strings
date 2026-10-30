@@ -117,3 +117,6 @@
 "Processing rate" = "処理サンプルレート";
 "Follow track rate" = "曲のサンプルレートに追従";
 "Hold at %@" = "%@ に固定";
+
+"Tidal locked at %@" = "Tidal で %@ に確定";
+"Tidal is in exclusive mode; not switching" = "Tidal が排他モードのため切り替えません";

@@ -119,3 +119,6 @@
 "Hold at %@" = "固定在 %@";
 
 /* Header tag: the app's Chinese name */
+
+"Tidal locked at %@" = "Tidal 已锁定 %@";
+"Tidal is in exclusive mode; not switching" = "Tidal 处于独占模式，不切换";

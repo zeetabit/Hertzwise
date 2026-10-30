@@ -316,6 +316,12 @@ struct TrackFormat: Equatable {
     var bitDepth: Int?
     var tier: String?
 
+    init(codec: String?, bitDepth: Int?, tier: String?) {
+        self.codec = codec
+        self.bitDepth = bitDepth
+        self.tier = tier
+    }
+
     init?(logMessage message: String) {
         guard let marker = message.range(of: "activeFormat:", options: .caseInsensitive) else {
             return nil

@@ -1,5 +1,6 @@
 import Foundation
 import AppKit
+import Combine
 import CoreAudio
 import Observation
 
@@ -37,6 +38,7 @@ final class SampleRateModel {
                 startLogParser()
             } else {
                 logController.stop()
+                tidalLogController.stop()
                 logStatusMessage = L10n.string("Log parser disabled")
             }
         }
@@ -45,7 +47,9 @@ final class SampleRateModel {
     private let mediaRemoteController = MediaRemoteController()
     private let musicController = MusicController()
     private let logController = LogStreamController()
+    private let tidalLogController = TidalPlayerLogController()
     private let audioController = AudioDeviceController()
+    @ObservationIgnored private var tidalSubscription: AnyCancellable?
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var latestLogCandidateRate: Double?
     @ObservationIgnored private var stableLogSampleRate: Double?
@@ -424,13 +428,34 @@ final class SampleRateModel {
         }
 
         logController.start()
+
+        tidalSubscription = tidalLogController.formatStarted
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] playback in
+                self?.handleTidalFormatStarted(playback)
+            }
+        tidalLogController.start()
     }
 
-    private func applyLogAutoSwitch(sampleRate: Double) {
+    /// Tidal logs the exact format it plays, so its rate locks directly
+    /// instead of going through the log-vote window.
+    private func handleTidalFormatStarted(_ playback: TidalPlaybackState) {
+        guard let format = playback.format else { return }
+        trackFormatAt = Date()
+        assign(\.trackFormat, TrackFormat(codec: nil, bitDepth: format.bitDepth, tier: nil))
+        // In exclusive mode Tidal sets the device rate itself and holds the
+        // device, so switching it from here would only fail.
+        guard !playback.exclusive else {
+            logStatusMessage = L10n.string("Tidal is in exclusive mode; not switching")
+            return
+        }
+        lockSampleRate(format.sampleRate, statusKey: "Tidal locked at %@", deviceUID: playback.deviceUID)
+    }
+
+    private func applyLogAutoSwitch(sampleRate: Double, deviceUID: String? = nil) {
         guard autoSwitchEnabled, OutputRateLock.shared.heldRate == nil else { return }
 
-        let outputDevice = audioController.defaultOutputDeviceInfo()
-        guard let currentOutputRate = outputDevice.sampleRate,
+        guard let currentOutputRate = audioController.nominalSampleRate(deviceUID: deviceUID),
               abs(currentOutputRate - sampleRate) >= 1.0 else {
             return
         }
@@ -442,10 +467,12 @@ final class SampleRateModel {
             return
         }
 
-        if audioController.setDefaultOutputSampleRate(sampleRate) {
+        if audioController.setOutputSampleRate(sampleRate, deviceUID: deviceUID) {
             lastAppliedSampleRate = sampleRate
             lastAppliedAt = Date()
-            outputSampleRateDisplay = formatSampleRate(sampleRate)
+            if deviceUID == nil {
+                outputSampleRateDisplay = formatSampleRate(sampleRate)
+            }
             statusMessage = L10n.format("Switched output to %@", formatSampleRate(sampleRate))
         } else {
             statusMessage = L10n.string("Failed to switch output sample rate")
@@ -562,13 +589,13 @@ final class SampleRateModel {
         }
     }
 
-    private func lockSampleRate(_ rate: Double, statusKey: String) {
+    private func lockSampleRate(_ rate: Double, statusKey: String, deviceUID: String? = nil) {
         stableLogSampleRate = rate
         stableLogSampleRateAt = Date()
         trackSampleRateDisplay = formatSampleRate(rate)
         sampleRateSourceDisplay = "Log (locked)"
         logStatusMessage = L10n.format(statusKey, formatSampleRate(rate))
-        applyLogAutoSwitch(sampleRate: rate)
+        applyLogAutoSwitch(sampleRate: rate, deviceUID: deviceUID)
     }
 
     private func quantizeLogRate(_ rate: Double) -> Double? {

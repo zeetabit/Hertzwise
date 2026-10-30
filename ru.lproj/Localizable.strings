@@ -107,3 +107,6 @@
 "Flat" = "Ровная АЧХ";
 "Equalizer active" = "Эквалайзер работает";
 "Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Для работы EQ приложению Hertzwise нужен доступ к аудиовходу. Разрешите его в разделе «Системные настройки → Конфиденциальность и безопасность → Микрофон».";
+
+"Tidal locked at %@" = "Tidal: зафиксировано %@";
+"Tidal is in exclusive mode; not switching" = "Tidal в эксклюзивном режиме, переключение пропущено";

@@ -40,6 +40,9 @@
 		B10000000000000000000007 /* UpdateChecker.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000027 /* UpdateChecker.swift */; };
 		B10000000000000000000010 /* AutoEQParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* AutoEQParser.swift */; };
 		B10000000000000000000011 /* PEQCompatibilityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000005 /* PEQCompatibilityTests.swift */; };
+		A10000000000000000000024 /* TidalPlayerLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* TidalPlayerLog.swift */; };
+		B10000000000000000000012 /* TidalPlayerLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000032 /* TidalPlayerLog.swift */; };
+		B10000000000000000000013 /* TidalPlayerLogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000006 /* TidalPlayerLogTests.swift */; };
 		B10000000000000000000008 /* UpdateCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* UpdateCheckerTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -80,6 +83,8 @@
 		B20000000000000000000003 /* LogStreamControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogStreamControllerTests.swift; sourceTree = "<group>"; };
 		B20000000000000000000005 /* PEQCompatibilityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PEQCompatibilityTests.swift; sourceTree = "<group>"; };
 		B20000000000000000000004 /* UpdateCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCheckerTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000032 /* TidalPlayerLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidalPlayerLog.swift; sourceTree = "<group>"; };
+		B20000000000000000000006 /* TidalPlayerLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidalPlayerLogTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000040 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = "de.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		A20000000000000000000050 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = "de.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		A20000000000000000000041 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = "es.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
@@ -201,6 +206,7 @@
 				A20000000000000000000008 /* MediaRemoteController.swift */,
 				A20000000000000000000009 /* MediaAuthorizationController.swift */,
 				A20000000000000000000010 /* LogStreamController.swift */,
+				A20000000000000000000032 /* TidalPlayerLog.swift */,
 			);
 			path = NowPlaying;
 			sourceTree = "<group>";
@@ -212,6 +218,7 @@
 				B20000000000000000000003 /* LogStreamControllerTests.swift */,
 				B20000000000000000000004 /* UpdateCheckerTests.swift */,
 				B20000000000000000000005 /* PEQCompatibilityTests.swift */,
+				B20000000000000000000006 /* TidalPlayerLogTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -334,6 +341,7 @@
 				A10000000000000000000005 /* MediaRemoteController.swift in Sources */,
 				A10000000000000000000006 /* MediaAuthorizationController.swift in Sources */,
 				A10000000000000000000007 /* LogStreamController.swift in Sources */,
+				A10000000000000000000024 /* TidalPlayerLog.swift in Sources */,
 				A10000000000000000000008 /* PanelView.swift in Sources */,
 				A10000000000000000000021 /* Theme.swift in Sources */,
 				A10000000000000000000011 /* PEQModels.swift in Sources */,
@@ -363,6 +371,8 @@
 				B10000000000000000000008 /* UpdateCheckerTests.swift in Sources */,
 				B10000000000000000000010 /* AutoEQParser.swift in Sources */,
 				B10000000000000000000011 /* PEQCompatibilityTests.swift in Sources */,
+				B10000000000000000000012 /* TidalPlayerLog.swift in Sources */,
+				B10000000000000000000013 /* TidalPlayerLogTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

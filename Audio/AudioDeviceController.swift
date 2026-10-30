@@ -255,7 +255,20 @@ final class AudioDeviceController {
     }
 
     func setDefaultOutputSampleRate(_ sampleRate: Double) -> Bool {
-        guard let deviceID = defaultOutputDeviceID() else {
+        setOutputSampleRate(sampleRate, deviceUID: nil)
+    }
+
+    /// `deviceUID` nil means the system default output.
+    func nominalSampleRate(deviceUID: String?) -> Double? {
+        guard let deviceID = outputDeviceID(uid: deviceUID) else {
+            return nil
+        }
+        return doubleProperty(objectID: deviceID, selector: kAudioDevicePropertyNominalSampleRate)
+    }
+
+    /// `deviceUID` nil means the system default output.
+    func setOutputSampleRate(_ sampleRate: Double, deviceUID: String?) -> Bool {
+        guard let deviceID = outputDeviceID(uid: deviceUID) else {
             return false
         }
 
@@ -283,6 +296,35 @@ final class AudioDeviceController {
         var size = UInt32(MemoryLayout<Double>.size)
         let setStatus = AudioObjectSetPropertyData(deviceID, &address, 0, nil, size, &rate)
         return setStatus == noErr
+    }
+
+    private func outputDeviceID(uid: String?) -> AudioDeviceID? {
+        guard let uid else {
+            return defaultOutputDeviceID()
+        }
+
+        var address = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyTranslateUIDToDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var cfUID = uid as CFString
+        var deviceID = AudioDeviceID(0)
+        var size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        let status = withUnsafeMutablePointer(to: &cfUID) { uidPointer in
+            AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject),
+                                       &address,
+                                       UInt32(MemoryLayout<CFString>.size),
+                                       uidPointer,
+                                       &size,
+                                       &deviceID)
+        }
+        guard status == noErr, deviceID != kAudioObjectUnknown else {
+            return nil
+        }
+
+        return deviceID
     }
 
     private func defaultOutputDeviceID() -> AudioDeviceID? {

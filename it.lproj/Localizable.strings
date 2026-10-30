@@ -107,3 +107,6 @@
 "Flat" = "Piatto";
 "Equalizer active" = "Equalizzatore attivo";
 "Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Hertzwise richiede l’accesso all’ingresso audio per usare l’EQ. Consentilo in Impostazioni di Sistema → Privacy e sicurezza → Microfono.";
+
+"Tidal locked at %@" = "Tidal: bloccato a %@";
+"Tidal is in exclusive mode; not switching" = "Tidal è in modalità esclusiva: nessun cambio";
