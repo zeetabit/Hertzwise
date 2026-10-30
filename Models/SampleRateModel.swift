@@ -51,6 +51,9 @@ final class SampleRateModel {
     private let audioController = AudioDeviceController()
     @ObservationIgnored private var tidalSubscription: AnyCancellable?
     @ObservationIgnored private var timer: Timer?
+    @ObservationIgnored private var deviceObservation: AudioDeviceObservation?
+    @ObservationIgnored private var musicObserver: NSObjectProtocol?
+    @ObservationIgnored private var panelVisible = false
     @ObservationIgnored private var latestLogCandidateRate: Double?
     @ObservationIgnored private var stableLogSampleRate: Double?
     @ObservationIgnored private var latestTrackInfo: TrackInfo?
@@ -184,11 +187,46 @@ final class SampleRateModel {
         logController.dumpRecentLines()
     }
 
+    /// Music posts this on every play, pause and track change.
+    private static let musicPlayerInfo = Notification.Name("com.apple.Music.playerInfo")
+
+    /// Refreshes only while the panel shows the per-second progress. Hidden,
+    /// changes arrive as Core Audio and Music notifications instead, with a
+    /// slow refresh as a safety net for anything that notifies nothing.
+    private static let visibleRefreshInterval: TimeInterval = 1
+    private static let hiddenRefreshInterval: TimeInterval = 15
+
     private func startPolling() {
         updateState()
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        deviceObservation = audioController.observeChanges { [weak self] in
             self?.updateState()
         }
+        musicObserver = DistributedNotificationCenter.default().addObserver(
+            forName: Self.musicPlayerInfo, object: nil, queue: .main
+        ) { [weak self] _ in
+            self?.updateState()
+        }
+        scheduleRefresh()
+    }
+
+    func setPanelVisible(_ visible: Bool) {
+        guard visible != panelVisible else { return }
+        panelVisible = visible
+        if visible {
+            updateState()
+        }
+        scheduleRefresh()
+    }
+
+    private func scheduleRefresh() {
+        timer?.invalidate()
+        let interval = panelVisible ? Self.visibleRefreshInterval : Self.hiddenRefreshInterval
+        let timer = Timer.scheduledTimer(withTimeInterval: interval, repeats: true) { [weak self] _ in
+            self?.updateState()
+        }
+        // Lets macOS batch this wake-up with others.
+        timer.tolerance = interval / 10
+        self.timer = timer
     }
 
     private func updateState() {

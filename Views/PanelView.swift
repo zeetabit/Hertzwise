@@ -93,7 +93,10 @@ struct PanelView: View {
         .foregroundStyle(Theme.textPrimary)
         .background(Theme.background.ignoresSafeArea())
         .background(WindowVisibilityReader(isVisible: $isOnScreen))
-        .onChange(of: isOnScreen, initial: true) { eq.setSpectrumVisible(isOnScreen && showEQ) }
+        .onChange(of: isOnScreen, initial: true) {
+            eq.setSpectrumVisible(isOnScreen && showEQ)
+            model.setPanelVisible(isOnScreen)
+        }
         .onChange(of: showEQ) { eq.setSpectrumVisible(isOnScreen && showEQ) }
         // Every `Text` below resolves its strings against this locale, so the
         // in-app language applies live; the EQ panel inherits it too.

@@ -489,3 +489,110 @@ final class AudioDeviceController {
         return closest
     }
 }
+
+extension AudioDeviceController {
+    /// Calls `onChange` on the main queue when the default output device, the
+    /// device list, or the default device's rate or volume changes. Listening
+    /// stops when the returned observation is released.
+    func observeChanges(_ onChange: @escaping () -> Void) -> AudioDeviceObservation {
+        AudioDeviceObservation(
+            onChange: onChange,
+            currentDevice: { [weak self] in self?.defaultOutputDeviceID() },
+            deviceAddresses: { [weak self] deviceID in self?.observedAddresses(deviceID: deviceID) ?? [] }
+        )
+    }
+
+    private func observedAddresses(deviceID: AudioDeviceID) -> [AudioObjectPropertyAddress] {
+        var addresses = [kAudioDevicePropertyNominalSampleRate, kAudioDevicePropertyAvailableNominalSampleRates].map {
+            AudioObjectPropertyAddress(mSelector: $0,
+                                       mScope: kAudioObjectPropertyScopeGlobal,
+                                       mElement: kAudioObjectPropertyElementMain)
+        }
+        if let (selector, elements) = volumeAddress(deviceID: deviceID) {
+            addresses += elements.map {
+                AudioObjectPropertyAddress(mSelector: selector,
+                                           mScope: kAudioDevicePropertyScopeOutput,
+                                           mElement: $0)
+            }
+        }
+        return addresses
+    }
+}
+
+/// Core Audio listeners that replace polling the device state. A device switch
+/// fires several changes at once; they are coalesced into one `onChange`.
+final class AudioDeviceObservation {
+    private let onChange: () -> Void
+    private let currentDevice: () -> AudioDeviceID?
+    private let deviceAddresses: (AudioDeviceID) -> [AudioObjectPropertyAddress]
+    private var boundDevice: AudioDeviceID?
+    private var deviceRegistrations: [AudioObjectPropertyAddress] = []
+    private var systemRegistrations: [AudioObjectPropertyAddress] = []
+    private var changePending = false
+    /// One block for every registration: removal matches it by identity.
+    private lazy var listener: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+        self?.propertyChanged()
+    }
+
+    fileprivate init(onChange: @escaping () -> Void,
+                     currentDevice: @escaping () -> AudioDeviceID?,
+                     deviceAddresses: @escaping (AudioDeviceID) -> [AudioObjectPropertyAddress]) {
+        self.onChange = onChange
+        self.currentDevice = currentDevice
+        self.deviceAddresses = deviceAddresses
+
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        for selector in [kAudioHardwarePropertyDefaultOutputDevice, kAudioHardwarePropertyDevices] {
+            var address = AudioObjectPropertyAddress(mSelector: selector,
+                                                     mScope: kAudioObjectPropertyScopeGlobal,
+                                                     mElement: kAudioObjectPropertyElementMain)
+            if AudioObjectAddPropertyListenerBlock(system, &address, .main, listener) == noErr {
+                systemRegistrations.append(address)
+            }
+        }
+        bindCurrentDevice()
+    }
+
+    deinit {
+        unbindDevice()
+        let system = AudioObjectID(kAudioObjectSystemObject)
+        for var address in systemRegistrations {
+            AudioObjectRemovePropertyListenerBlock(system, &address, .main, listener)
+        }
+    }
+
+    /// Runs on the main queue.
+    private func propertyChanged() {
+        if currentDevice() != boundDevice {
+            bindCurrentDevice()
+        }
+        guard !changePending else { return }
+        changePending = true
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            self.changePending = false
+            self.onChange()
+        }
+    }
+
+    private func bindCurrentDevice() {
+        unbindDevice()
+        guard let deviceID = currentDevice() else { return }
+        boundDevice = deviceID
+        for var address in deviceAddresses(deviceID) {
+            if AudioObjectAddPropertyListenerBlock(deviceID, &address, .main, listener) == noErr {
+                deviceRegistrations.append(address)
+            }
+        }
+    }
+
+    private func unbindDevice() {
+        if let boundDevice {
+            for var address in deviceRegistrations {
+                AudioObjectRemovePropertyListenerBlock(boundDevice, &address, .main, listener)
+            }
+        }
+        deviceRegistrations = []
+        boundDevice = nil
+    }
+}
