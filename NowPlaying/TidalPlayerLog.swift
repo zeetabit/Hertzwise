@@ -251,23 +251,14 @@ final class TidalPlayerLogController {
     private let stateSubject = CurrentValueSubject<TidalPlaybackState, Never>(TidalPlaybackState())
     private let formatSubject = PassthroughSubject<TidalPlaybackState, Never>()
 
-    private let url: URL
-    private let reopenInterval: TimeInterval
+    private var tail: LogFileTail!
     private let isPlayerRunning: () -> Bool
     private let systemLog: LogStreamController?
     private let systemLogHistory: () -> [String]
     private let queue = DispatchQueue(label: "tidal.playerlog.controller")
     private var playback = TidalPlaybackState()
     private var systemLogIsLive = false
-    private var handle: FileHandle?
-    private var source: DispatchSourceFileSystemObject?
-    private var offset: UInt64 = 0
-    private var buffer = Data()
-    private var reopenWorkItem: DispatchWorkItem?
     private var isRunning = false
-
-    /// A line longer than this without a newline is not a log line we want.
-    private static let maxBufferedBytes = 1 << 20
 
     /// `systemLog` nil leaves only `player.log`, as in tests that feed the
     /// unified log through `ingestSystemLogLine`. `systemLogHistory` returns
@@ -277,14 +268,15 @@ final class TidalPlayerLogController {
          isPlayerRunning: @escaping () -> Bool = TidalPlayerLogController.isTidalRunning,
          systemLog: LogStreamController? = TidalPlayerLogController.makeSystemLog(),
          systemLogHistory: @escaping () -> [String] = TidalPlayerLogController.recentSystemLog) {
-        self.url = url
-        self.reopenInterval = reopenInterval
         self.isPlayerRunning = isPlayerRunning
         self.systemLog = systemLog
         self.systemLogHistory = systemLogHistory
         systemLog?.onLine = { [weak self] line in
             self?.ingestSystemLogLine(line)
         }
+        tail = LogFileTail(url: url, reopenInterval: reopenInterval, queue: queue,
+                           onHistory: { [weak self] in self?.catchUp(on: $0) },
+                           onLines: { [weak self] in self?.ingestFileLines($0) })
     }
 
     static func recentSystemLog() -> [String] {
@@ -309,10 +301,8 @@ final class TidalPlayerLogController {
             guard let self else { return }
             self.isRunning = true
             self.systemLogIsLive = false
-            self.reopenWorkItem?.cancel()
-            self.teardown()
             self.playback = TidalPlaybackState()
-            self.open(catchingUp: true)
+            self.tail.start()
             // Live lines queue behind this, so they apply after the history.
             self.finishCatchUp()
         }
@@ -324,9 +314,7 @@ final class TidalPlayerLogController {
         queue.async { [weak self] in
             guard let self else { return }
             self.isRunning = false
-            self.reopenWorkItem?.cancel()
-            self.reopenWorkItem = nil
-            self.teardown()
+            self.tail.stop()
         }
     }
 
@@ -340,56 +328,9 @@ final class TidalPlayerLogController {
         }
     }
 
-    /// Must be called on `queue`. `catchingUp` is the first open of a file that
-    /// already has history: it is replayed silently to rebuild the playback
-    /// state, and a track that is still playing starts its format right away.
-    private func open(catchingUp: Bool) {
-        guard isRunning else { return }
-        guard let handle = FileHandle(forReadingAtPath: url.path) else {
-            scheduleReopen()
-            return
-        }
-
-        if catchingUp {
-            let history = (try? handle.readToEnd()) ?? Data()
-            offset = UInt64(history.count)
-            catchUp(on: history)
-        } else {
-            offset = 0
-        }
-
-        let source = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: handle.fileDescriptor,
-            eventMask: [.extend, .write, .delete, .rename],
-            queue: queue
-        )
-        source.setEventHandler { [weak self, weak source] in
-            guard let self, let source else { return }
-            let events = source.data
-            self.readAvailable()
-            if events.contains(.delete) || events.contains(.rename) {
-                self.teardown()
-                self.open(catchingUp: false)
-            }
-        }
-        source.setCancelHandler {
-            try? handle.close()
-        }
-
-        self.handle = handle
-        self.source = source
-        source.resume()
-
-        // Lines written between the rotation and this open would otherwise
-        // wait for the next write.
-        if !catchingUp {
-            readAvailable()
-        }
-    }
-
     /// Must be called on `queue`.
     private func catchUp(on history: Data) {
-        for event in lines(in: history).compactMap(TidalPlayerLogParser.parse) {
+        for event in LogFileTail.lines(in: history).compactMap(TidalPlayerLogParser.parse) {
             _ = playback.apply(event)
         }
     }
@@ -423,49 +364,10 @@ final class TidalPlayerLogController {
     }
 
     /// Must be called on `queue`.
-    private func scheduleReopen() {
-        let item = DispatchWorkItem { [weak self] in
-            self?.open(catchingUp: false)
-        }
-        reopenWorkItem?.cancel()
-        reopenWorkItem = item
-        queue.asyncAfter(deadline: .now() + reopenInterval, execute: item)
-    }
-
-    /// Must be called on `queue`.
-    private func teardown() {
-        source?.cancel()
-        source = nil
-        handle = nil
-        offset = 0
-        buffer.removeAll(keepingCapacity: false)
-    }
-
-    /// Must be called on `queue`.
-    private func readAvailable() {
-        guard let handle, let end = try? handle.seekToEnd() else { return }
-        if end < offset {
-            // Truncated in place: start over from the top.
-            offset = 0
-            buffer.removeAll(keepingCapacity: true)
-        }
-        guard end > offset else { return }
-
-        try? handle.seek(toOffset: offset)
-        guard let data = try? handle.read(upToCount: Int(end - offset)), !data.isEmpty else {
-            return
-        }
-        offset += UInt64(data.count)
-        buffer.append(data)
-
-        let events = drainLines().compactMap(TidalPlayerLogParser.parse)
-        if !systemLogIsLive {
-            events.forEach(publish)
-        }
-
-        if buffer.count > Self.maxBufferedBytes {
-            buffer.removeAll(keepingCapacity: false)
-        }
+    private func ingestFileLines(_ lines: [String]) {
+        // Once the unified log is live, the file's late lines only repeat it.
+        guard !systemLogIsLive else { return }
+        lines.compactMap(TidalPlayerLogParser.parse).forEach(publish)
     }
 
     /// Must be called on `queue`.
@@ -478,16 +380,5 @@ final class TidalPlayerLogController {
         if started != nil {
             formatSubject.send(playback)
         }
-    }
-
-    private func drainLines() -> [String] {
-        guard let lastNewline = buffer.lastIndex(of: 0x0A) else { return [] }
-        let complete = buffer[buffer.startIndex...lastNewline]
-        buffer.removeSubrange(buffer.startIndex...lastNewline)
-        return lines(in: Data(complete))
-    }
-
-    private func lines(in data: Data) -> [String] {
-        data.split(separator: 0x0A).compactMap { String(data: $0, encoding: .utf8) }
     }
 }

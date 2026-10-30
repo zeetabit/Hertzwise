@@ -721,7 +721,8 @@ private struct FlatVolumeSlider: View {
     var isEnabled: Bool
     var onEditingChanged: (Bool) -> Void
 
-    @State private var isDragging = false
+    @State private var dragStartValue: Double?
+    private var isDragging: Bool { dragStartValue != nil }
 
     var body: some View {
         GeometryReader { geo in
@@ -741,16 +742,19 @@ private struct FlatVolumeSlider: View {
             .frame(maxHeight: .infinity)
             .contentShape(Rectangle())
             .gesture(
-                DragGesture(minimumDistance: 0)
+                // Relative, so a click on the track never jumps to full
+                // volume: with IEMs that is a hearing risk.
+                DragGesture(minimumDistance: 2)
                     .onChanged { gesture in
-                        if !isDragging {
-                            isDragging = true
+                        let start = dragStartValue ?? value
+                        if dragStartValue == nil {
+                            dragStartValue = start
                             onEditingChanged(true)
                         }
-                        value = min(max((gesture.location.x - knob / 2) / (width - knob), 0), 1)
+                        value = min(max(start + gesture.translation.width / (width - knob), 0), 1)
                     }
                     .onEnded { _ in
-                        isDragging = false
+                        dragStartValue = nil
                         onEditingChanged(false)
                     }
             )
