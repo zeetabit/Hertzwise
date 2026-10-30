@@ -59,6 +59,14 @@ final class ProcessTapEngine: @unchecked Sendable {
     private var tapID = AudioObjectID(kAudioObjectUnknown)
     private var aggregateID = AudioObjectID(kAudioObjectUnknown)
     private var ioProcID: AudioDeviceIOProcID?
+    /// The volume stage's previous path, still playing and muting while its
+    /// replacement is built after a rate change. Control queue only.
+    private var retiringPath: (tap: AudioObjectID, aggregate: AudioObjectID, ioProc: AudioDeviceIOProcID?)?
+    /// Each path's aggregate needs its own UID while two exist at once.
+    private var pathGeneration = 0
+    /// True while `start()` builds a replacement: its failure path calls
+    /// `stop()`, which must then leave the old path for the fallback.
+    private var isReplacingPath = false
     private(set) var sampleRate: Double = 48000
     private var currentProfile: PEQProfile = .flat
     private var inputFormat = AudioStreamBasicDescription()
@@ -98,6 +106,9 @@ final class ProcessTapEngine: @unchecked Sendable {
     // queue reads and resets them and logs them at notice level, so whether
     // audio arrives from the tap and leaves for the device is never a guess.
     private let renderCycles = Atomic<UInt64>(0)
+    /// Output frames the tap had no samples for, filled with silence: each
+    /// is an audible dropout.
+    private let missingFrames = Atomic<UInt64>(0)
     /// Linear gain for `.allButHertzwise`, at most 1, set from any thread.
     private let targetGainBits = Atomic<UInt32>(Float(1).bitPattern)
     /// The gain the last render ended at. Render thread only.
@@ -231,6 +242,11 @@ final class ProcessTapEngine: @unchecked Sendable {
         // The first render starts at the volume already set, not ramping
         // down from full level: the tap has muted the device's own output.
         renderGain = Float(bitPattern: targetGainBits.load(ordering: .relaxed))
+        // The old path stops only now, with the new one ready to start: both
+        // taps mute the device, so the handover is silence, never full level.
+        if let retiringPath, let oldProc = retiringPath.ioProc {
+            AudioDeviceStop(retiringPath.aggregate, oldProc)
+        }
         let startStatus = AudioDeviceStart(aggregateID, procID)
         guard startStatus == noErr else {
             stop()
@@ -238,10 +254,58 @@ final class ProcessTapEngine: @unchecked Sendable {
         }
 
         isRunning = true
+        dismantleRetiringPath()
         installLifecycleListeners(device: outputDevice)
         log.notice("EQ engine started at \(self.sampleRate, privacy: .public) Hz; tap in \(Self.describe(self.inputFormat), privacy: .public); device out \(Self.describe(self.outputFormat), privacy: .public)")
         startHealthTimer()
         return true
+    }
+
+    /// Volume stage, control queue: a path kept running through a rate change
+    /// can fall out of step with the device and deliver ~1% too few samples,
+    /// heard as dropouts. A fresh path is right, so build one while the old
+    /// keeps playing and muting, then hand over. On failure the old one stays.
+    private func replacePathForRateChange() {
+        guard isRunning else { return }
+        stopHealthTimer()
+        removeLifecycleListeners()
+        retiringPath = (tapID, aggregateID, ioProcID)
+        tapID = AudioObjectID(kAudioObjectUnknown)
+        aggregateID = AudioObjectID(kAudioObjectUnknown)
+        ioProcID = nil
+        pathGeneration += 1
+        isRunning = false
+        isReplacingPath = true
+        let started = start()
+        isReplacingPath = false
+        if started {
+            log.notice("Volume path replaced at \(self.sampleRate, privacy: .public) Hz")
+            return
+        }
+        // start() failed and tore down its partial path; resume the old one.
+        guard let old = retiringPath else { return }
+        retiringPath = nil
+        tapID = old.tap
+        aggregateID = old.aggregate
+        ioProcID = old.ioProc
+        if let oldProc = old.ioProc { AudioDeviceStart(old.aggregate, oldProc) }
+        isRunning = true
+        if let device = boundDeviceUID.flatMap({ deviceID(uid: $0) }) {
+            installLifecycleListeners(device: device)
+        }
+        startHealthTimer()
+        log.error("Volume path replacement failed; kept the old path")
+    }
+
+    private func dismantleRetiringPath() {
+        guard let old = retiringPath else { return }
+        retiringPath = nil
+        if let oldProc = old.ioProc, old.aggregate != kAudioObjectUnknown {
+            AudioDeviceStop(old.aggregate, oldProc)
+            AudioDeviceDestroyIOProcID(old.aggregate, oldProc)
+        }
+        if old.aggregate != kAudioObjectUnknown { AudioHardwareDestroyAggregateDevice(old.aggregate) }
+        if old.tap != kAudioObjectUnknown { AudioHardwareDestroyProcessTap(old.tap) }
     }
 
     func stop() {
@@ -250,6 +314,7 @@ final class ProcessTapEngine: @unchecked Sendable {
         rebuildWork = nil
         removeLifecycleListeners()
         tearDownAudio()
+        if !isReplacingPath { dismantleRetiringPath() }
         processor.setActive(false)
         processor.requestReset()
         isRunning = false
@@ -416,6 +481,9 @@ final class ProcessTapEngine: @unchecked Sendable {
         guard outputFrames > 0 else { return }
         let available = min(outputFrames,
                             frameCapacity(of: inList, format: inputFormat, firstBuffer: inputFirstBuffer))
+        if available < outputFrames {
+            missingFrames.wrappingAdd(UInt64(outputFrames - available), ordering: .relaxed)
+        }
         let startGain = renderGain
         let targetGain = Float(bitPattern: targetGainBits.load(ordering: .relaxed))
         let step = available > 0 ? (targetGain - startGain) / Float(available) : 0
@@ -580,7 +648,8 @@ final class ProcessTapEngine: @unchecked Sendable {
         let cycles = renderCycles.exchange(0, ordering: .relaxed)
         let input = Float(bitPattern: inputPeakBits.exchange(0, ordering: .relaxed))
         let output = Float(bitPattern: outputPeakBits.exchange(0, ordering: .relaxed))
-        log.notice("Health: \(cycles, privacy: .public) renders in 2 s, tap peak \(Self.dBFS(input), privacy: .public), output peak \(Self.dBFS(output), privacy: .public)")
+        let missing = missingFrames.exchange(0, ordering: .relaxed)
+        log.notice("Health: \(cycles, privacy: .public) renders in 2 s, tap peak \(Self.dBFS(input), privacy: .public), output peak \(Self.dBFS(output), privacy: .public), \(missing, privacy: .public) frames missing")
 
         silentWindows = cycles > 0 && input == 0 ? silentWindows + 1 : 0
         let silent = silentWindows >= 3
@@ -630,7 +699,7 @@ final class ProcessTapEngine: @unchecked Sendable {
     private func createAggregate(tapUID: String, outputUID: String) -> AudioObjectID? {
         let description: [String: Any] = [
             kAudioAggregateDeviceNameKey as String: source == .appleMusic ? "Hertzwise EQ" : "Hertzwise Volume",
-            kAudioAggregateDeviceUIDKey as String: aggregateUID,
+            kAudioAggregateDeviceUIDKey as String: "\(aggregateUID).\(pathGeneration)",
             kAudioAggregateDeviceIsPrivateKey as String: true,
             kAudioAggregateDeviceIsStackedKey as String: false,
             kAudioAggregateDeviceTapAutoStartKey as String: true,
@@ -671,11 +740,10 @@ final class ProcessTapEngine: @unchecked Sendable {
             guard let self else { return }
             guard let rate = self.nominalSampleRate(device), abs(rate - self.sampleRate) >= 0.5 else { return }
             if self.source == .allButHertzwise {
-                // The tap and the aggregate follow the device's rate, and a
-                // gain does not depend on it. Rebuilding would drop the tap
-                // for seconds, and its mute with it: full level reaches the DAC.
-                self.sampleRate = rate
-                self.log.notice("Volume path kept through rate change to \(rate, privacy: .public) Hz")
+                // Not the EQ's rebuild: tearing down first would drop the
+                // tap, and its mute, for seconds, so full level would reach
+                // the DAC. The replacement is built before the old one goes.
+                self.replacePathForRateChange()
                 return
             }
             self.scheduleRebuild()
