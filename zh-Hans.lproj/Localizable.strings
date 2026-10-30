@@ -112,6 +112,7 @@
 
 /* Fixed EQ processing rate */
 "Resampled" = "重采样";
+"Signal lost" = "信号丢失";
 "EQ on — output held at %@" = "均衡器已开启 — 输出固定在 %@";
 "Turn the EQ off to change the sample rate." = "关闭均衡器后才能更改采样率。";
 "Processing rate" = "处理采样率";
@@ -122,4 +123,6 @@
 
 "Tidal locked at %@" = "Tidal 已锁定 %@";
 "Tidal is in exclusive mode; not switching" = "Tidal 处于独占模式，不切换";
+"%@: log lost; not switching" = "%@：日志丢失，不切换";
+"%@: no sample rate; not switching" = "%@：无采样率，不切换";
 "Sources" = "来源";

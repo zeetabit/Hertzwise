@@ -321,6 +321,35 @@ final class TidalPlayerLogControllerTests: XCTestCase {
         XCTAssertEqual(deviceUID, pawS1)
     }
 
+    /// The file still shows the previous 24/96 track playing; the unified log
+    /// already moved on to 16/44.1.
+    func testUnifiedHistoryCorrectsAStaleFileAtStartup() throws {
+        try write([device(pawS1, "Shared"), sinkOpen(96000, 24), play])
+        startController(history: [ndjson(playStopped(pawS1)), ndjson(converter(44100, 16, to: 96000)),
+                                  ndjson(playStarted(pawS1))])
+
+        assertEventually(events: [], started: [format(44100, 16)])
+    }
+
+    func testUnifiedHistoryShowingAPauseStartsNothing() throws {
+        try write([device(pawS1, "Shared"), sinkOpen(96000, 24), play])
+        startController(history: [ndjson(playStopped(pawS1))])
+
+        assertEventually(events: [], started: [])
+        var state: TidalPlaybackState?
+        controller.state.sink { state = $0 }.store(in: &subscriptions)
+        XCTAssertEqual(state?.isPlaying, false)
+    }
+
+    /// Once the history shows the unified log works, the file's late lines are ignored.
+    func testFileIsIgnoredAfterAUnifiedHistory() throws {
+        try write([])
+        startController(history: [ndjson(converter(44100, 16, to: 44100)), ndjson(playStarted(pawS1))])
+        try append([sinkOpen(96000, 24)])
+
+        assertEventually(events: [], started: [format(44100, 16)])
+    }
+
     func testCatchUpIgnoresPlaybackOfAPlayerThatQuit() throws {
         try write([sinkOpen(96000, 24), play])
         startController(playerRunning: false)
@@ -423,9 +452,10 @@ final class TidalPlayerLogControllerTests: XCTestCase {
         return String(decoding: data, as: UTF8.self)
     }
 
-    private func startController(playerRunning: Bool = true) {
+    private func startController(playerRunning: Bool = true, history: [String] = []) {
         controller = TidalPlayerLogController(url: logURL, reopenInterval: 0.05,
-                                              isPlayerRunning: { playerRunning }, systemLog: nil)
+                                              isPlayerRunning: { playerRunning }, systemLog: nil,
+                                              systemLogHistory: { history })
         controller.events.sink { [weak self] event in
             guard let self else { return }
             self.lock.lock(); self.events.append(event); self.lock.unlock()

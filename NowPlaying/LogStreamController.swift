@@ -54,8 +54,13 @@ final class LogStreamController {
     private var launchedAt: Date?
 
     var onSampleRate: ((Double, String?) -> Void)?
+    /// The source rate of the latest stream before `start()`, from the
+    /// catch-up. That stream may have stopped since.
+    var onEarlierSampleRate: ((Double) -> Void)?
     var onTrackFormat: ((TrackFormat) -> Void)?
     var onStatus: ((String) -> Void)?
+    /// Called on the main queue once restarts are used up and no reader runs.
+    var onGaveUp: (() -> Void)?
     /// When set, every ndjson line goes here instead of the Apple Music
     /// parsing, so another source can reuse the process handling. Called on a
     /// private queue.
@@ -75,8 +80,8 @@ final class LogStreamController {
     /// The decoder line is a default-level message; debug level cost ~6x the CPU.
     var logLevel: String = "default"
     /// Music logs its source rate once per stream, so a reader started
-    /// mid-stream would never see it. When set, `start()` also replays the
-    /// latest matching line from the recent log.
+    /// mid-stream would never see it. When set, `start()` also reports the
+    /// latest stream's rate from the recent log through `onEarlierSampleRate`.
     var catchUpPredicate: String? = "process == \"Music\" AND eventMessage CONTAINS \"Created a new in process converter\""
     private static let catchUpWindow = "10m"
 
@@ -113,21 +118,13 @@ final class LogStreamController {
     /// `queue`: `log show` takes a few seconds and must not delay `stop()`.
     private func catchUp(predicate: String) {
         DispatchQueue.global(qos: .utility).async { [weak self] in
-            let proc = Process()
-            proc.executableURL = URL(fileURLWithPath: "/usr/bin/log")
-            proc.arguments = ["show", "--style", "ndjson", "--last", Self.catchUpWindow, "--predicate", predicate]
-            let pipe = Pipe()
-            proc.standardOutput = pipe
-            proc.standardError = FileHandle.nullDevice
-            guard (try? proc.run()) != nil else { return }
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            proc.waitUntilExit()
-
-            let lines = String(decoding: data, as: UTF8.self).split(separator: "\n").map(String.init)
-            guard let latest = LogStreamController.latestSourceRateLine(in: lines) else { return }
+            let lines = LogStreamController.history(predicate: predicate, last: Self.catchUpWindow)
+            guard let latest = LogStreamController.latestSourceRateLine(in: lines),
+                  let message = LogStreamController.eventMessage(of: latest),
+                  let rate = SampleRateParser.extractSampleRate(from: message) else { return }
             self?.queue.async {
                 guard let self, !self.isStopping else { return }
-                self.handleLogLine(latest)
+                self.onEarlierSampleRate?(rate)
             }
         }
     }
@@ -235,6 +232,7 @@ final class LogStreamController {
             let attempts = restartAttempts
             DispatchQueue.main.async {
                 self.onStatus?("Log stream stopped after \(attempts) failed restarts")
+                self.onGaveUp?()
             }
             return
         }
@@ -324,6 +322,21 @@ final class LogStreamController {
     /// Takes the message alone: an ndjson line's `formatString` also says "from … to".
     static func isSourceRateLine(_ message: String) -> Bool {
         message.contains("Created a new in process converter") && !isDeviceSideConverter(message)
+    }
+
+    /// The ndjson lines `log show` finds over `window`, such as "10m". Takes a
+    /// few seconds; call it off any queue that must stay responsive.
+    static func history(predicate: String, last window: String) -> [String] {
+        let proc = Process()
+        proc.executableURL = URL(fileURLWithPath: "/usr/bin/log")
+        proc.arguments = ["show", "--style", "ndjson", "--last", window, "--predicate", predicate]
+        let pipe = Pipe()
+        proc.standardOutput = pipe
+        proc.standardError = FileHandle.nullDevice
+        guard (try? proc.run()) != nil else { return [] }
+        let data = pipe.fileHandleForReading.readDataToEndOfFile()
+        proc.waitUntilExit()
+        return String(decoding: data, as: UTF8.self).split(separator: "\n").map(String.init)
     }
 
     static func latestSourceRateLine(in ndjsonLines: [String]) -> String? {

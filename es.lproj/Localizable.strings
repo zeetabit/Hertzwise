@@ -36,6 +36,7 @@
 "Not playing" = "Sin reproducción";
 "Fitted at %@" = "Ajustado a %@";
 "Resampled" = "Remuestreado";
+"Signal lost" = "Señal perdida";
 "Dump now playing" = "Exportar datos de reproducción";
 "Follow track rate" = "Seguir frecuencia de la pista";
 "Imported %1$ld bands from %2$@." = "Se importaron %1$ld bandas de %2$@.";
@@ -110,4 +111,6 @@
 
 "Tidal locked at %@" = "Tidal: fijado en %@";
 "Tidal is in exclusive mode; not switching" = "Tidal está en modo exclusivo; sin cambio";
+"%@: log lost; not switching" = "%@: registro perdido; sin cambio";
+"%@: no sample rate; not switching" = "%@: sin frecuencia de muestreo; sin cambio";
 "Sources" = "Fuentes";

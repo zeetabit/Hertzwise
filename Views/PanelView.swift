@@ -159,11 +159,14 @@ private struct WindowVisibilityReader: NSViewRepresentable {
 // MARK: - Sync state
 
 private enum SyncState {
-    case inSync, switching, mismatch, detecting, standby, resampled
+    case inSync, switching, mismatch, detecting, standby, resampled, signalLost
 
     init(model: SampleRateModel) {
         let source = model.trackSampleRateDisplay
-        if OutputRateLock.shared.heldRate != nil {
+        if model.signalWarning != nil {
+            // The rates shown may be stale, so "In sync" would be a guess.
+            self = .signalLost
+        } else if OutputRateLock.shared.heldRate != nil {
             // The EQ holds the output at its own rate; Core Audio resamples.
             self = .resampled
         } else if source.contains("kHz") {
@@ -187,13 +190,14 @@ private enum SyncState {
         case .detecting: return "Detecting"
         case .standby: return "Standby"
         case .resampled: return "Resampled"
+        case .signalLost: return "Signal lost"
         }
     }
 
     var color: Color {
         switch self {
         case .inSync: return Theme.ok
-        case .switching, .mismatch, .detecting: return Theme.warn
+        case .switching, .mismatch, .detecting, .signalLost: return Theme.warn
         case .standby: return Theme.textMuted
         case .resampled: return Theme.accent
         }
@@ -773,7 +777,8 @@ private struct StatusFooter: View {
     var model: SampleRateModel
 
     var body: some View {
-        let lines = [model.statusMessage, model.logStatusMessage].filter { !$0.isEmpty }
+        let warning = model.signalWarning
+        let lines = [model.statusMessage, warning ?? model.logStatusMessage].filter { !$0.isEmpty }
         if !lines.isEmpty {
             HStack(alignment: .firstTextBaseline, spacing: 6) {
                 Circle()
@@ -785,9 +790,12 @@ private struct StatusFooter: View {
                 }
             }
             .font(.system(size: 11))
-            .foregroundStyle(Theme.textMuted)
+            .foregroundStyle(warning == nil ? Theme.textMuted : Theme.textPrimary)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 2)
+            .padding(.horizontal, warning == nil ? 2 : 8)
+            .padding(.vertical, warning == nil ? 0 : 5)
+            .background(warning == nil ? Color.clear : Theme.warn.opacity(0.18),
+                        in: RoundedRectangle(cornerRadius: Theme.controlRadius))
         }
     }
 }

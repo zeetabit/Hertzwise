@@ -237,6 +237,12 @@ final class TidalPlayerLogController {
         !NSRunningApplication.runningApplications(withBundleIdentifier: "com.tidal.desktop").isEmpty
     }
 
+    /// Called on the main queue when the unified log reader gives up.
+    var onSystemLogLost: (() -> Void)? {
+        get { systemLog?.onGaveUp }
+        set { systemLog?.onGaveUp = newValue }
+    }
+
     var events: AnyPublisher<TidalPlayerEvent, Never> { eventSubject.eraseToAnyPublisher() }
     var state: AnyPublisher<TidalPlaybackState, Never> { stateSubject.eraseToAnyPublisher() }
     var formatStarted: AnyPublisher<TidalPlaybackState, Never> { formatSubject.eraseToAnyPublisher() }
@@ -249,6 +255,7 @@ final class TidalPlayerLogController {
     private let reopenInterval: TimeInterval
     private let isPlayerRunning: () -> Bool
     private let systemLog: LogStreamController?
+    private let systemLogHistory: () -> [String]
     private let queue = DispatchQueue(label: "tidal.playerlog.controller")
     private var playback = TidalPlaybackState()
     private var systemLogIsLive = false
@@ -263,24 +270,31 @@ final class TidalPlayerLogController {
     private static let maxBufferedBytes = 1 << 20
 
     /// `systemLog` nil leaves only `player.log`, as in tests that feed the
-    /// unified log through `ingestSystemLogLine`.
+    /// unified log through `ingestSystemLogLine`. `systemLogHistory` returns
+    /// the unified log's recent ndjson lines, replayed at start-up.
     init(url: URL = TidalPlayerLogController.defaultLogURL,
          reopenInterval: TimeInterval = 5,
          isPlayerRunning: @escaping () -> Bool = TidalPlayerLogController.isTidalRunning,
-         systemLog: LogStreamController? = TidalPlayerLogController.makeSystemLog()) {
+         systemLog: LogStreamController? = TidalPlayerLogController.makeSystemLog(),
+         systemLogHistory: @escaping () -> [String] = TidalPlayerLogController.recentSystemLog) {
         self.url = url
         self.reopenInterval = reopenInterval
         self.isPlayerRunning = isPlayerRunning
         self.systemLog = systemLog
+        self.systemLogHistory = systemLogHistory
         systemLog?.onLine = { [weak self] line in
             self?.ingestSystemLogLine(line)
         }
     }
 
+    static func recentSystemLog() -> [String] {
+        LogStreamController.history(predicate: TidalPlayerLogParser.systemLogPredicate, last: "30m")
+    }
+
     static func makeSystemLog() -> LogStreamController {
         let stream = LogStreamController()
         stream.predicate = TidalPlayerLogParser.systemLogPredicate
-        // player.log rebuilds Tidal's state at startup instead.
+        // `recentSystemLog` replays its history at start-up instead.
         stream.catchUpPredicate = nil
         return stream
     }
@@ -297,7 +311,10 @@ final class TidalPlayerLogController {
             self.systemLogIsLive = false
             self.reopenWorkItem?.cancel()
             self.teardown()
+            self.playback = TidalPlaybackState()
             self.open(catchingUp: true)
+            // Live lines queue behind this, so they apply after the history.
+            self.finishCatchUp()
         }
         systemLog?.start()
     }
@@ -372,9 +389,24 @@ final class TidalPlayerLogController {
 
     /// Must be called on `queue`.
     private func catchUp(on history: Data) {
-        var rebuilt = TidalPlaybackState()
         for event in lines(in: history).compactMap(TidalPlayerLogParser.parse) {
+            _ = playback.apply(event)
+        }
+    }
+
+    /// Must be called on `queue`. `player.log` trails the player by up to
+    /// ~18 s, so the unified log's recent history, which is exact, has the
+    /// last word before the rebuilt state is published.
+    private func finishCatchUp() {
+        guard isRunning else { return }
+        var rebuilt = playback
+        let events = systemLogHistory().compactMap(TidalPlayerLogParser.parseSystemLogLine)
+        for event in events {
             _ = rebuilt.apply(event)
+        }
+        if !events.isEmpty {
+            // The file's lines arrive late and repeat what the live stream delivers.
+            systemLogIsLive = true
         }
         // A player that quit mid-track never logged its stop.
         if !isPlayerRunning() {

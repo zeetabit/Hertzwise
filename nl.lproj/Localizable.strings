@@ -36,6 +36,7 @@
 "Not playing" = "Er wordt niets afgespeeld";
 "Fitted at %@" = "Afgestemd op %@";
 "Resampled" = "Resampling";
+"Signal lost" = "Signaal kwijt";
 "Dump now playing" = "Exporteer afspeelinfo";
 "Follow track rate" = "Volg frequentie van nummer";
 "Imported %1$ld bands from %2$@." = "%1$ld banden geïmporteerd uit %2$@.";
@@ -110,4 +111,6 @@
 
 "Tidal locked at %@" = "Tidal: vastgezet op %@";
 "Tidal is in exclusive mode; not switching" = "Tidal staat in exclusieve modus; niet gewisseld";
+"%@: log lost; not switching" = "%@: log verloren; niet gewisseld";
+"%@: no sample rate; not switching" = "%@: geen samplefrequentie; niet gewisseld";
 "Sources" = "Bronnen";

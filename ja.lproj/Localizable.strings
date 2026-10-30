@@ -112,6 +112,7 @@
 
 /* Fixed EQ processing rate */
 "Resampled" = "リサンプリング";
+"Signal lost" = "信号なし";
 "EQ on — output held at %@" = "EQ オン — 出力を %@ に固定";
 "Turn the EQ off to change the sample rate." = "サンプルレートを変更するには EQ をオフにしてください。";
 "Processing rate" = "処理サンプルレート";
@@ -120,4 +121,6 @@
 
 "Tidal locked at %@" = "Tidal で %@ に確定";
 "Tidal is in exclusive mode; not switching" = "Tidal が排他モードのため切り替えません";
+"%@: log lost; not switching" = "%@：ログが途切れたため切り替えません";
+"%@: no sample rate; not switching" = "%@：サンプルレートが不明のため切り替えません";
 "Sources" = "ソース";

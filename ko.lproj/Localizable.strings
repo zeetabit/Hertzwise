@@ -36,6 +36,7 @@
 "Not playing" = "재생 중 아님";
 "Fitted at %@" = "%@ 기준 설계";
 "Resampled" = "리샘플링됨";
+"Signal lost" = "신호 없음";
 "Dump now playing" = "현재 재생 정보 덤프";
 "Follow track rate" = "트랙 샘플레이트 따르기";
 "Imported %1$ld bands from %2$@." = "%2$@에서 밴드 %1$ld개를 가져왔습니다.";
@@ -110,4 +111,6 @@
 
 "Tidal locked at %@" = "Tidal: %@ 확정";
 "Tidal is in exclusive mode; not switching" = "Tidal이 단독 모드라 전환하지 않음";
+"%@: log lost; not switching" = "%@: 로그가 끊겨 전환하지 않음";
+"%@: no sample rate; not switching" = "%@: 샘플레이트를 알 수 없어 전환하지 않음";
 "Sources" = "소스";

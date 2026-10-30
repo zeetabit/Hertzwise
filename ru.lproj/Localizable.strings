@@ -36,6 +36,7 @@
 "Not playing" = "Не воспроизводится";
 "Fitted at %@" = "Расчёт: %@";
 "Resampled" = "Ресемплинг";
+"Signal lost" = "Сигнал потерян";
 "Dump now playing" = "Выгрузить данные о текущем треке";
 "Follow track rate" = "Следовать частоте трека";
 "Imported %1$ld bands from %2$@." = "Импортировано полос из %2$@: %1$ld.";
@@ -110,4 +111,6 @@
 
 "Tidal locked at %@" = "Tidal: зафиксировано %@";
 "Tidal is in exclusive mode; not switching" = "Tidal в эксклюзивном режиме, переключение пропущено";
+"%@: log lost; not switching" = "%@: журнал потерян, переключение пропущено";
+"%@: no sample rate; not switching" = "%@: частота дискретизации неизвестна, переключение пропущено";
 "Sources" = "Источники";

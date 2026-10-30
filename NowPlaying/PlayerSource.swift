@@ -5,6 +5,14 @@ import Foundation
 enum PlayerSource: CaseIterable {
     case tidal, appleMusic
 
+    /// As the app calls itself; not translated.
+    var name: String {
+        switch self {
+        case .tidal: return "Tidal"
+        case .appleMusic: return "Apple Music"
+        }
+    }
+
     /// The app, as Launch Services and the now playing service name it.
     var appBundleID: String {
         switch self {

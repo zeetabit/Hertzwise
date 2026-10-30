@@ -30,6 +30,8 @@ final class SampleRateModel {
     /// Codec, bit depth and tier from Music's `activeFormat` log line, when seen.
     var trackFormat: TrackFormat?
     var logStatusMessage: String = ""
+    /// Set while a followed player's rate cannot be seen; the panel turns yellow.
+    var signalWarning: String?
     var statusMessage: String = ""
     var autoSwitchEnabled: Bool = true
     var tidalEnabled = PlayerSources.tidal {
@@ -88,6 +90,10 @@ final class SampleRateModel {
     /// Set when Music's rate came from its decoder line, which every stream
     /// logs: a title change then needs no reset to the vote window.
     @ObservationIgnored private var musicRateIsExact = false
+    @ObservationIgnored private var signalCheck: DispatchWorkItem?
+    @ObservationIgnored private var signalLostSource: PlayerSource?
+    /// How long a playing player may go without a known rate before the panel says so.
+    private static let signalGracePeriod: TimeInterval = 5
     @ObservationIgnored private var latestTrackInfo: TrackInfo?
     @ObservationIgnored private var latestTrackInfoError: String?
     @ObservationIgnored private var trackInfoFetchInFlight = false
@@ -577,6 +583,7 @@ final class SampleRateModel {
     }
 
     private func startLogParser() {
+        clearSignalWarning()
         logController.onSampleRate = { [weak self] rate, message in
             if let message, LogStreamController.isSourceRateLine(message) {
                 DispatchQueue.main.async { self?.lockExactMusicRate(rate) }
@@ -584,6 +591,17 @@ final class SampleRateModel {
             }
             let weight = (message?.contains("Derived from frames/duration") ?? false) ? 3 : 1
             self?.enqueueLogVote(rate: rate, weight: weight)
+        }
+
+        logController.onGaveUp = { [weak self] in
+            self?.reportSignalLost(.appleMusic, L10n.format("%@: log lost; not switching", PlayerSource.appleMusic.name))
+        }
+        tidalLogController.onSystemLogLost = { [weak self] in
+            self?.reportSignalLost(.tidal, L10n.format("%@: log lost; not switching", PlayerSource.tidal.name))
+        }
+
+        logController.onEarlierSampleRate = { [weak self] rate in
+            DispatchQueue.main.async { self?.restoreMusicRate(rate) }
         }
 
         logController.onStatus = { [weak self] status in
@@ -645,6 +663,7 @@ final class SampleRateModel {
     /// instead of going through the log-vote window.
     private func handleTidalFormatStarted(_ playback: TidalPlaybackState) {
         guard let format = playback.format else { return }
+        clearSignalWarning(for: .tidal)
         tidalLockedRate = format.sampleRate
         tidalDeviceUID = playback.deviceUID
         guard arbiter.mayDrive(.tidal) else { return }
@@ -694,8 +713,41 @@ final class SampleRateModel {
             case .appleMusic:
                 if let stableLogSampleRate { applyLogAutoSwitch(sampleRate: stableLogSampleRate) }
             }
+            scheduleSignalCheck()
         }
         updateCurrentSampleRateDisplay()
+    }
+
+    private func knownRate(of source: PlayerSource) -> Double? {
+        switch source {
+        case .tidal: return tidalLockedRate
+        case .appleMusic: return stableLogSampleRate
+        }
+    }
+
+    /// A player playing with no rate from its log would play resampled
+    /// without a word; give it the grace period, then say so.
+    private func scheduleSignalCheck() {
+        signalCheck?.cancel()
+        guard let active = arbiter.active, knownRate(of: active) == nil else { return }
+        let check = DispatchWorkItem { [weak self] in
+            guard let self, self.arbiter.active == active, self.knownRate(of: active) == nil else { return }
+            self.reportSignalLost(active, L10n.format("%@: no sample rate; not switching", active.name))
+        }
+        signalCheck = check
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.signalGracePeriod, execute: check)
+    }
+
+    private func reportSignalLost(_ source: PlayerSource, _ message: String) {
+        signalLostSource = source
+        assign(\.signalWarning, message)
+    }
+
+    /// With `source`, only that player's warning: a rate from it proves its signal.
+    private func clearSignalWarning(for source: PlayerSource? = nil) {
+        guard source == nil || source == signalLostSource else { return }
+        signalLostSource = nil
+        assign(\.signalWarning, nil)
     }
 
     private func applyLogAutoSwitch(sampleRate: Double, deviceUID: String? = nil) {
@@ -848,8 +900,21 @@ final class SampleRateModel {
         lockSampleRate(rate, statusKey: "Log locked at %@")
     }
 
+    /// A rate Music logged before Hertzwise started. It drives only if Music
+    /// is playing now; otherwise it waits for Music's output to start.
+    private func restoreMusicRate(_ rate: Double) {
+        guard arbiter.active != .appleMusic else {
+            lockExactMusicRate(rate)
+            return
+        }
+        stableLogSampleRate = rate
+        stableLogSampleRateAt = Date()
+        musicRateIsExact = true
+    }
+
     /// Music's rate, from the log-vote window.
     private func lockSampleRate(_ rate: Double, statusKey: String) {
+        clearSignalWarning(for: .appleMusic)
         stableLogSampleRate = rate
         stableLogSampleRateAt = Date()
         guard arbiter.mayDrive(.appleMusic) else { return }
