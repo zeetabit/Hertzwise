@@ -19,16 +19,24 @@
     {
       "layers" : [
         {
-          "image-name" : "waves.png",
-          "name" : "waves"
+          "image-name" : "wave.png",
+          "name" : "wave"
         }
       ]
     },
     {
       "layers" : [
         {
-          "image-name" : "readout.png",
-          "name" : "readout"
+          "image-name" : "knob.png",
+          "name" : "knob"
+        }
+      ]
+    },
+    {
+      "layers" : [
+        {
+          "image-name" : "ticks.png",
+          "name" : "ticks"
         }
       ]
     }
