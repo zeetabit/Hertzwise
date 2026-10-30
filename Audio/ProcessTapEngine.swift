@@ -99,6 +99,8 @@ final class ProcessTapEngine: @unchecked Sendable {
     /// is an audible dropout.
     private let missingFrames = Atomic<UInt64>(0)
     private let renderedFrames = Atomic<UInt64>(0)
+    /// Never reset: the early check measures a new path's first seconds.
+    private let totalRenderedFrames = Atomic<UInt64>(0)
     /// Linear gain, at most 1, set from any thread: the device's volume when
     /// Hertzwise controls it, otherwise 1.
     private let targetGainBits = Atomic<UInt32>(Float(1).bitPattern)
@@ -111,6 +113,9 @@ final class ProcessTapEngine: @unchecked Sendable {
     /// the tap catches up.
     private var healthWindows = 0
     private var lastSelfHeal = Date.distantPast
+    /// Early replacements in a row, so a device that always renders short
+    /// can't keep the path rebuilding.
+    private var earlyHeals = 0
     private var lastHealthReport = Date()
     /// Rendered frames as a share of what the device played, last window.
     private var previousRenderRatio = 1.0
@@ -268,6 +273,7 @@ final class ProcessTapEngine: @unchecked Sendable {
         isRunning = true
         dismantleRetiringPath()
         installLifecycleListeners(device: outputDevice)
+        scheduleEarlyCheck()
         log.notice("Path started at \(self.sampleRate, privacy: .public) Hz; tap in \(Self.describe(self.inputFormat), privacy: .public); device out \(Self.describe(self.outputFormat), privacy: .public)")
         startHealthTimer()
         return true
@@ -516,6 +522,7 @@ final class ProcessTapEngine: @unchecked Sendable {
         renderGain = targetGain
         renderCycles.wrappingAdd(1, ordering: .relaxed)
         renderedFrames.wrappingAdd(UInt64(outputFrames), ordering: .relaxed)
+        totalRenderedFrames.wrappingAdd(UInt64(outputFrames), ordering: .relaxed)
 
         if spectrumFrames > 0, let sampleSinkPointer {
             let sampleSink = Unmanaged<SpectrumAnalyzer>
@@ -574,6 +581,7 @@ final class ProcessTapEngine: @unchecked Sendable {
         }
         renderCycles.wrappingAdd(1, ordering: .relaxed)
         renderedFrames.wrappingAdd(UInt64(outputFrames), ordering: .relaxed)
+        totalRenderedFrames.wrappingAdd(UInt64(outputFrames), ordering: .relaxed)
     }
 
     /// Fills `inputScratch[0..<count]` with one output channel's source: the
@@ -685,6 +693,44 @@ final class ProcessTapEngine: @unchecked Sendable {
     }
 
     // MARK: - Render health
+
+    /// A path rebuilt around a rate change can render short from its first
+    /// cycle; the health windows take ~6 s to tell. Measured here over the
+    /// path's first 1.5 s of running IO instead. Measured on the PAW S1: a
+    /// healthy new path renders 100% of the device's frames here, a short
+    /// one 98.5%.
+    private func scheduleEarlyCheck() {
+        let generation = pathGeneration
+        let baseline = totalRenderedFrames.load(ordering: .relaxed)
+        awaitIOForEarlyCheck(generation: generation, baseline: baseline, deadline: Date().addingTimeInterval(5))
+    }
+
+    /// IO can start late, or idle until a tapped app plays.
+    private func awaitIOForEarlyCheck(generation: Int, baseline: UInt64, deadline: Date) {
+        controlQueue.asyncAfter(deadline: .now() + 0.25) { [weak self] in
+            guard let self, self.isRunning, self.pathGeneration == generation, Date() < deadline else { return }
+            let start = self.totalRenderedFrames.load(ordering: .relaxed)
+            guard start > baseline else {
+                self.awaitIOForEarlyCheck(generation: generation, baseline: baseline, deadline: deadline)
+                return
+            }
+            let startTime = Date()
+            self.controlQueue.asyncAfter(deadline: .now() + 1.5) {
+                guard self.isRunning, self.pathGeneration == generation else { return }
+                let rendered = Double(self.totalRenderedFrames.load(ordering: .relaxed) &- start)
+                let ratio = rendered / (Date().timeIntervalSince(startTime) * self.sampleRate)
+                self.log.notice("Early check: rendered \(Int(ratio * 1000), privacy: .public)‰ of the device's frames")
+                guard ratio < 0.99, self.earlyHeals < 3 else {
+                    if ratio >= 0.99 { self.earlyHeals = 0 }
+                    return
+                }
+                self.earlyHeals += 1
+                self.lastSelfHeal = Date()
+                self.log.error("New path renders \(Int(ratio * 1000), privacy: .public)‰ of the device's frames; replacing it")
+                self.rebuildAudioPath()
+            }
+        }
+    }
 
     private func startHealthTimer() {
         stopHealthTimer()
