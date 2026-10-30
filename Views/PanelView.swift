@@ -565,25 +565,54 @@ private struct NowPlayingCard: View {
 /// The only view that reads the playback clock, so its 1 Hz ticks stay local.
 private struct PlaybackProgress: View {
     var model: SampleRateModel
+    /// The position under the pointer while dragging; the seek is sent once,
+    /// on release.
+    @State private var dragFraction: Double?
 
     var body: some View {
         HStack(spacing: 8) {
-            Text(timeString(model.elapsedSeconds))
+            Text(timeString(shownElapsed))
                 .frame(minWidth: 30, alignment: .leading)
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule().fill(Theme.fill)
                     Capsule()
                         .fill(Theme.accent)
-                        .frame(width: max(0, geo.size.width * progress))
+                        .frame(width: max(0, geo.size.width * (dragFraction ?? progress)))
                 }
+                .frame(height: 3)
+                .frame(maxHeight: .infinity)
+                .contentShape(Rectangle())
+                .gesture(seekGesture(width: geo.size.width), including: model.canSeek ? .all : .none)
             }
-            .frame(height: 3)
+            // Taller than the bar, so it is easy to hit.
+            .frame(height: 14)
             Text(timeString(model.durationSeconds))
                 .frame(minWidth: 30, alignment: .trailing)
         }
         .font(.system(size: 11).monospacedDigit())
         .foregroundStyle(Theme.textMuted)
+    }
+
+    private func seekGesture(width: CGFloat) -> some Gesture {
+        DragGesture(minimumDistance: 0)
+            .onChanged { value in
+                dragFraction = fraction(at: value.location.x, width: width)
+            }
+            .onEnded { value in
+                model.seek(toFraction: fraction(at: value.location.x, width: width))
+                dragFraction = nil
+            }
+    }
+
+    private func fraction(at x: CGFloat, width: CGFloat) -> Double {
+        guard width > 0 else { return 0 }
+        return min(max(Double(x / width), 0), 1)
+    }
+
+    private var shownElapsed: Double? {
+        guard let dragFraction, let duration = model.durationSeconds else { return model.elapsedSeconds }
+        return dragFraction * duration
     }
 
     private var progress: Double {

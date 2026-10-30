@@ -144,8 +144,9 @@ final class SampleRateModel {
         }
     }
 
-    var menuBarTitle: String {
-        trackSampleRateDisplay.contains("kHz") ? trackSampleRateDisplay : "SR"
+    /// Nil until a rate is locked, so the menu bar shows only the icon.
+    var menuBarTitle: String? {
+        trackSampleRateDisplay.contains("kHz") ? trackSampleRateDisplay : nil
     }
 
     func refreshNow() {
@@ -172,6 +173,18 @@ final class SampleRateModel {
     func previousTrack() {
         guard canControlPlayback else { return }
         sendTransport(.previousTrack, fallback: .previousTrack)
+    }
+
+    var canSeek: Bool {
+        nowPlayingAdapter.isAvailable && followedTrack != nil && (durationSeconds ?? 0) > 0
+    }
+
+    func seek(toFraction fraction: Double) {
+        guard canSeek, let durationSeconds else { return }
+        let seconds = min(max(fraction, 0), 1) * durationSeconds
+        nowPlayingAdapter.seek(to: seconds)
+        // Shown at once; the adapter's update confirms it.
+        elapsedSeconds = seconds
     }
 
     private func sendTransport(_ command: NowPlayingAdapter.Command, fallback: MusicCommand) {

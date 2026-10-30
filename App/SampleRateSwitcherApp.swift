@@ -79,7 +79,9 @@ struct SampleRateSwitcherApp: App {
         } label: {
             HStack(spacing: 4) {
                 Image(nsImage: MenuBarMark.image)
-                Text(model.menuBarTitle)
+                if let title = model.menuBarTitle {
+                    Text(title)
+                }
             }
         }
         .menuBarExtraStyle(.window)

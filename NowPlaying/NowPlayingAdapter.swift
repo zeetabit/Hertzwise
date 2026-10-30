@@ -76,10 +76,20 @@ final class NowPlayingAdapter {
 
     /// Sends `command` to the app that is now playing.
     func send(_ command: Command) {
+        run(["send", String(command.rawValue)])
+    }
+
+    /// Moves the now playing track to `seconds`.
+    func seek(to seconds: Double) {
+        guard seconds.isFinite else { return }
+        run(["seek", String(Int64(max(seconds, 0) * 1_000_000))])
+    }
+
+    private func run(_ arguments: [String]) {
         guard isAvailable else { return }
         let process = Process()
         process.executableURL = URL(fileURLWithPath: launcher[0])
-        process.arguments = Array(launcher.dropFirst()) + ["send", String(command.rawValue)]
+        process.arguments = Array(launcher.dropFirst()) + arguments
         try? process.run()
     }
 
