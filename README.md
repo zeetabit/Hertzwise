@@ -76,4 +76,4 @@ Track info and playback controls come from [mediaremote-adapter](https://github.
 
 ## License
 
-[MIT](LICENSE). The original copyright notice is kept as the license requires.
+[MIT](https://github.com/zeetabit/Hertzwise/blob/main/LICENSE). The original copyright notice is kept as the license requires.
