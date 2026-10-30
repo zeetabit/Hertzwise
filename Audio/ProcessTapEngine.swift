@@ -98,16 +98,10 @@ final class ProcessTapEngine: @unchecked Sendable {
     // queue reads and resets them and logs them at notice level, so whether
     // audio arrives from the tap and leaves for the device is never a guess.
     private let renderCycles = Atomic<UInt64>(0)
-    // Bit-exactness evidence for `.allButHertzwise`: how many non-zero input
-    // samples sit exactly on the 16- and 24-bit grids. A 16-bit track arriving
-    // all on the 16-bit grid proves the tap delivers the player's own samples.
     /// Linear gain for `.allButHertzwise`, at most 1, set from any thread.
     private let targetGainBits = Atomic<UInt32>(Float(1).bitPattern)
     /// The gain the last render ended at. Render thread only.
     private var renderGain: Float = 1
-    private let gridSamples = Atomic<UInt64>(0)
-    private let gridOn16 = Atomic<UInt64>(0)
-    private let gridOn24 = Atomic<UInt64>(0)
     private let inputPeakBits = Atomic<UInt32>(0)
     private let outputPeakBits = Atomic<UInt32>(0)
     private var healthTimer: DispatchSourceTimer?
@@ -427,7 +421,6 @@ final class ProcessTapEngine: @unchecked Sendable {
         let step = available > 0 ? (targetGain - startGain) / Float(available) : 0
         var inPeak: Float = 0
         var outPeak: Float = 0
-        var samples: UInt64 = 0, on16: UInt64 = 0, on24: UInt64 = 0
         for channel in 0..<Int(outputFormat.mChannelsPerFrame) {
             guard let destination = channelBuffer(outList, format: outputFormat, channel: channel) else { continue }
             var copied = 0
@@ -438,13 +431,7 @@ final class ProcessTapEngine: @unchecked Sendable {
                     let out = sample * gain
                     destination.base[index * destination.stride] = out
                     outPeak = max(outPeak, abs(out))
-                    guard sample != 0 else { continue }
                     inPeak = max(inPeak, abs(sample))
-                    samples += 1
-                    let scaled16 = sample * 32_768
-                    if scaled16 == scaled16.rounded() { on16 += 1 }
-                    let scaled24 = sample * 8_388_608
-                    if scaled24 == scaled24.rounded() { on24 += 1 }
                 }
                 copied = available
             }
@@ -457,9 +444,6 @@ final class ProcessTapEngine: @unchecked Sendable {
         if outPeak > Float(bitPattern: outputPeakBits.load(ordering: .relaxed)) {
             outputPeakBits.store(outPeak.bitPattern, ordering: .relaxed)
         }
-        gridSamples.wrappingAdd(samples, ordering: .relaxed)
-        gridOn16.wrappingAdd(on16, ordering: .relaxed)
-        gridOn24.wrappingAdd(on24, ordering: .relaxed)
         renderCycles.wrappingAdd(1, ordering: .relaxed)
     }
 
@@ -597,14 +581,6 @@ final class ProcessTapEngine: @unchecked Sendable {
         let input = Float(bitPattern: inputPeakBits.exchange(0, ordering: .relaxed))
         let output = Float(bitPattern: outputPeakBits.exchange(0, ordering: .relaxed))
         log.notice("Health: \(cycles, privacy: .public) renders in 2 s, tap peak \(Self.dBFS(input), privacy: .public), output peak \(Self.dBFS(output), privacy: .public)")
-        if source == .allButHertzwise {
-            let samples = gridSamples.exchange(0, ordering: .relaxed)
-            let on16 = gridOn16.exchange(0, ordering: .relaxed)
-            let on24 = gridOn24.exchange(0, ordering: .relaxed)
-            if samples > 0 {
-                log.notice("Grid: \(samples, privacy: .public) samples, \(String(format: "%.2f", 100 * Double(on16) / Double(samples)), privacy: .public)% on 16-bit, \(String(format: "%.2f", 100 * Double(on24) / Double(samples)), privacy: .public)% on 24-bit")
-            }
-        }
 
         silentWindows = cycles > 0 && input == 0 ? silentWindows + 1 : 0
         let silent = silentWindows >= 3
@@ -693,7 +669,15 @@ final class ProcessTapEngine: @unchecked Sendable {
             // arrive after the path is already up at that rate; only a real
             // change of rate needs a rebuild.
             guard let self else { return }
-            if let rate = self.nominalSampleRate(device), abs(rate - self.sampleRate) < 0.5 { return }
+            guard let rate = self.nominalSampleRate(device), abs(rate - self.sampleRate) >= 0.5 else { return }
+            if self.source == .allButHertzwise {
+                // The tap and the aggregate follow the device's rate, and a
+                // gain does not depend on it. Rebuilding would drop the tap
+                // for seconds, and its mute with it: full level reaches the DAC.
+                self.sampleRate = rate
+                self.log.notice("Volume path kept through rate change to \(rate, privacy: .public) Hz")
+                return
+            }
             self.scheduleRebuild()
         }
         let status = AudioObjectAddPropertyListenerBlock(device, &address, controlQueue, block)

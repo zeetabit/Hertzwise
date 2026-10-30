@@ -84,8 +84,7 @@ final class SampleRateModel {
     @ObservationIgnored private var panelVisible = false
     @ObservationIgnored private var processMonitor: AudioProcessMonitor?
     /// The volume stage, one per connected device with "Control volume" on,
-    /// by device UID. Opt-in with the `volumeTapProbe` default until rate
-    /// changes are proven through it.
+    /// by device UID.
     @ObservationIgnored private var volumeEngines: [String: ProcessTapEngine] = [:]
     @ObservationIgnored private var outputtingBundleIDs: Set<String> = []
     @ObservationIgnored private var playbackDevices: [String: Set<AudioObjectID>] = [:]
@@ -706,7 +705,7 @@ final class SampleRateModel {
     private func updateVolumeStage() {
         let enabled = Set(audioController.outputDevices().map(\.uid).filter { !$0.isEmpty && HostVolumeControl.isEnabled(uid: $0) })
         assign(\.volumeControlledUIDs, enabled)
-        let wanted = UserDefaults.standard.bool(forKey: "volumeTapProbe") ? enabled : []
+        let wanted = enabled
         for uid in wanted where volumeEngines[uid] == nil {
             let engine = ProcessTapEngine(source: .allButHertzwise, deviceUID: uid)
             volumeEngines[uid] = engine
