@@ -4,29 +4,6 @@ import Combine
 import CoreAudio
 import Observation
 
-/// Which players Hertzwise follows. A disabled player costs nothing: no log
-/// reader, no AppleScript and so no permission prompt. Until the user chooses,
-/// Tidal follows whether it is installed and Apple Music, which every Mac has,
-/// stays off.
-enum PlayerSources {
-    private static let tidalKey = "source.tidal"
-    private static let appleMusicKey = "source.appleMusic"
-
-    static var tidal: Bool {
-        get { UserDefaults.standard.object(forKey: tidalKey) as? Bool ?? isInstalled("com.tidal.desktop") }
-        set { UserDefaults.standard.set(newValue, forKey: tidalKey) }
-    }
-
-    static var appleMusic: Bool {
-        get { UserDefaults.standard.object(forKey: appleMusicKey) as? Bool ?? false }
-        set { UserDefaults.standard.set(newValue, forKey: appleMusicKey) }
-    }
-
-    private static func isInstalled(_ bundleID: String) -> Bool {
-        NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) != nil
-    }
-}
-
 /// `@Observable`, so each panel card re-renders only for the properties it
 /// reads. The 1 Hz poll writes through `assign`, which skips unchanged values —
 /// every write to an observed property would otherwise invalidate its readers.
@@ -59,13 +36,15 @@ final class SampleRateModel {
         didSet {
             PlayerSources.tidal = tidalEnabled
             if logParserEnabled { startLogParser() }
+            rearbitrate()
         }
     }
     var appleMusicEnabled = PlayerSources.appleMusic {
         didSet {
             PlayerSources.appleMusic = appleMusicEnabled
-            if appleMusicEnabled { requestMediaAccess() }
+            if appleMusicEnabled, !nowPlayingAdapter.isAvailable { requestMediaAccess() }
             if logParserEnabled { startLogParser() }
+            rearbitrate()
             updateState()
         }
     }
@@ -96,6 +75,14 @@ final class SampleRateModel {
     @ObservationIgnored private var deviceObservation: AudioDeviceObservation?
     @ObservationIgnored private var musicObserver: NSObjectProtocol?
     @ObservationIgnored private var panelVisible = false
+    @ObservationIgnored private var processMonitor: AudioProcessMonitor?
+    @ObservationIgnored private var outputtingBundleIDs: Set<String> = []
+    @ObservationIgnored private var arbiter = SourceArbiter()
+    @ObservationIgnored private var appObservers: [NSObjectProtocol] = []
+    /// Tidal's rate, kept apart from Music's `stableLogSampleRate` so that one
+    /// player's track change never clears the other's lock.
+    @ObservationIgnored private var tidalLockedRate: Double?
+    @ObservationIgnored private var tidalDeviceUID: String?
     @ObservationIgnored private var latestLogCandidateRate: Double?
     @ObservationIgnored private var stableLogSampleRate: Double?
     @ObservationIgnored private var latestTrackInfo: TrackInfo?
@@ -127,7 +114,8 @@ final class SampleRateModel {
     @ObservationIgnored private var trackFormatAt: Date?
 
     init() {
-        if appleMusicEnabled {
+        // With the adapter, Apple Music's track info needs no permission.
+        if appleMusicEnabled, !nowPlayingAdapter.isAvailable {
             requestMediaAccess()
         }
         startLogParser()
@@ -273,6 +261,19 @@ final class SampleRateModel {
     private static let hiddenRefreshInterval: TimeInterval = 15
 
     private func startPolling() {
+        processMonitor = AudioProcessMonitor { [weak self] bundleIDs in
+            self?.outputtingBundleIDs = bundleIDs
+            self?.rearbitrate()
+        }
+        let workspace = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didLaunchApplicationNotification, NSWorkspace.didTerminateApplicationNotification] {
+            appObservers.append(workspace.addObserver(forName: name, object: nil, queue: .main) { [weak self] note in
+                let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
+                guard let self, app?.bundleIdentifier == PlayerSource.appleMusic.appBundleID,
+                      self.logParserEnabled else { return }
+                self.startLogParser()
+            })
+        }
         updateState()
         deviceObservation = audioController.observeChanges { [weak self] in
             self?.updateState()
@@ -348,14 +349,18 @@ final class SampleRateModel {
         }
     }
 
+    /// Whether the panel shows an Apple Music track: from the adapter, or from
+    /// AppleScript in a build without it.
+    private var isMusicTrack: Bool {
+        nowPlayingAdapter.isAvailable ? followedTrack?.bundleID == PlayerSource.appleMusic.appBundleID
+                                      : appleMusicEnabled
+    }
+
     /// The adapter's track when it comes from a player Hertzwise follows.
     private var followedTrack: NowPlayingAdapter.Track? {
-        guard let adapterTrack else { return nil }
-        switch adapterTrack.bundleID {
-        case "com.tidal.desktop": return tidalEnabled ? adapterTrack : nil
-        case "com.apple.Music": return appleMusicEnabled ? adapterTrack : nil
-        default: return nil
-        }
+        guard let adapterTrack, let source = PlayerSource(bundleID: adapterTrack.bundleID),
+              isFollowed(source) else { return nil }
+        return adapterTrack
     }
 
     private static func nowPlayingInfo(_ track: NowPlayingAdapter.Track) -> NowPlayingInfo {
@@ -427,7 +432,9 @@ final class SampleRateModel {
             return
         }
 
-        updateTrackTitle(resolvedTitle)
+        if isMusicTrack {
+            updateTrackTitle(resolvedTitle)
+        }
         assign(\.currentTrackTitle, resolvedTitle)
         assign(\.artistName, info?.artist ?? fallbackTrack?.artist ?? "")
         assign(\.albumName, info?.album ?? fallbackTrack?.album ?? "")
@@ -440,6 +447,12 @@ final class SampleRateModel {
 
         guard isPlaying else {
             assign(\.statusMessage, L10n.string("Paused"))
+            return
+        }
+
+        // What follows re-applies Music's rate, as SyncHz did every refresh.
+        guard isMusicTrack, shownSource == .appleMusic else {
+            assign(\.statusMessage, "")
             return
         }
 
@@ -576,13 +589,14 @@ final class SampleRateModel {
 
         logController.onTrackFormat = { [weak self] format in
             DispatchQueue.main.async {
-                guard let self else { return }
+                guard let self, self.arbiter.mayDrive(.appleMusic) else { return }
                 self.trackFormatAt = Date()
                 self.assign(\.trackFormat, format)
             }
         }
 
-        if appleMusicEnabled {
+        // Music's reader streams at debug level, so it runs only while Music does.
+        if appleMusicEnabled, isMusicRunning {
             logController.start()
         } else {
             logController.stop()
@@ -624,15 +638,57 @@ final class SampleRateModel {
     /// instead of going through the log-vote window.
     private func handleTidalFormatStarted(_ playback: TidalPlaybackState) {
         guard let format = playback.format else { return }
+        tidalLockedRate = format.sampleRate
+        tidalDeviceUID = playback.deviceUID
+        guard arbiter.mayDrive(.tidal) else { return }
         trackFormatAt = Date()
         assign(\.trackFormat, TrackFormat(codec: nil, bitDepth: format.bitDepth, tier: nil))
+        trackSampleRateDisplay = formatSampleRate(format.sampleRate)
+        sampleRateSourceDisplay = "Log (locked)"
+        logStatusMessage = L10n.format("Tidal locked at %@", formatSampleRate(format.sampleRate))
+        driveTidal(rate: format.sampleRate)
+    }
+
+    private func driveTidal(rate: Double) {
         // In exclusive mode Tidal sets the device rate itself and holds the
         // device, so switching it from here would only fail.
-        guard !audioController.isHeldByAnotherProcess(deviceUID: playback.deviceUID) else {
+        guard !audioController.isHeldByAnotherProcess(deviceUID: tidalDeviceUID) else {
             logStatusMessage = L10n.string("Tidal is in exclusive mode; not switching")
             return
         }
-        lockSampleRate(format.sampleRate, statusKey: "Tidal locked at %@", deviceUID: playback.deviceUID)
+        applyLogAutoSwitch(sampleRate: rate, deviceUID: tidalDeviceUID)
+    }
+
+    private var isMusicRunning: Bool {
+        !NSRunningApplication.runningApplications(withBundleIdentifier: PlayerSource.appleMusic.appBundleID).isEmpty
+    }
+
+    private func isFollowed(_ source: PlayerSource) -> Bool {
+        switch source {
+        case .tidal: return tidalEnabled
+        case .appleMusic: return appleMusicEnabled
+        }
+    }
+
+    /// The player whose rate the panel shows: the one driving the output,
+    /// else the last one that did, else whichever has a rate.
+    private var shownSource: PlayerSource? {
+        arbiter.shown ?? (tidalLockedRate != nil ? .tidal : stableLogSampleRate != nil ? .appleMusic : nil)
+    }
+
+    /// Hands the output to the followed player that started last, and applies
+    /// its rate when it takes over.
+    private func rearbitrate() {
+        let outputting = Set(outputtingBundleIDs.compactMap(PlayerSource.init(bundleID:)).filter(isFollowed))
+        if arbiter.update(outputting: outputting), let active = arbiter.active {
+            switch active {
+            case .tidal:
+                if let tidalLockedRate { driveTidal(rate: tidalLockedRate) }
+            case .appleMusic:
+                if let stableLogSampleRate { applyLogAutoSwitch(sampleRate: stableLogSampleRate) }
+            }
+        }
+        updateCurrentSampleRateDisplay()
     }
 
     private func applyLogAutoSwitch(sampleRate: Double, deviceUID: String? = nil) {
@@ -760,7 +816,10 @@ final class SampleRateModel {
     }
 
     private func updateCurrentSampleRateDisplay() {
-        if let stableLogSampleRate {
+        if shownSource == .tidal, let tidalLockedRate {
+            assign(\.trackSampleRateDisplay, formatSampleRate(tidalLockedRate))
+            assign(\.sampleRateSourceDisplay, "Log (locked)")
+        } else if let stableLogSampleRate {
             assign(\.trackSampleRateDisplay, formatSampleRate(stableLogSampleRate))
             assign(\.sampleRateSourceDisplay, "Log (locked)")
         } else if latestLogCandidateRate != nil {
@@ -772,13 +831,15 @@ final class SampleRateModel {
         }
     }
 
-    private func lockSampleRate(_ rate: Double, statusKey: String, deviceUID: String? = nil) {
+    /// Music's rate, from the log-vote window.
+    private func lockSampleRate(_ rate: Double, statusKey: String) {
         stableLogSampleRate = rate
         stableLogSampleRateAt = Date()
+        guard arbiter.mayDrive(.appleMusic) else { return }
         trackSampleRateDisplay = formatSampleRate(rate)
         sampleRateSourceDisplay = "Log (locked)"
         logStatusMessage = L10n.format(statusKey, formatSampleRate(rate))
-        applyLogAutoSwitch(sampleRate: rate, deviceUID: deviceUID)
+        applyLogAutoSwitch(sampleRate: rate)
     }
 
     private func quantizeLogRate(_ rate: Double) -> Double? {

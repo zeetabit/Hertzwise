@@ -46,6 +46,10 @@
 		A10000000000000000000025 /* NowPlayingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* NowPlayingAdapter.swift */; };
 		B10000000000000000000014 /* NowPlayingAdapter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000033 /* NowPlayingAdapter.swift */; };
 		B10000000000000000000015 /* NowPlayingAdapterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000007 /* NowPlayingAdapterTests.swift */; };
+		A10000000000000000000026 /* PlayerSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* PlayerSource.swift */; };
+		A10000000000000000000027 /* AudioProcessMonitor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000035 /* AudioProcessMonitor.swift */; };
+		B10000000000000000000016 /* PlayerSource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000034 /* PlayerSource.swift */; };
+		B10000000000000000000017 /* SourceArbiterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000008 /* SourceArbiterTests.swift */; };
 		B10000000000000000000008 /* UpdateCheckerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B20000000000000000000004 /* UpdateCheckerTests.swift */; };
 /* End PBXBuildFile section */
 
@@ -90,6 +94,9 @@
 		B20000000000000000000006 /* TidalPlayerLogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TidalPlayerLogTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000033 /* NowPlayingAdapter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingAdapter.swift; sourceTree = "<group>"; };
 		B20000000000000000000007 /* NowPlayingAdapterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingAdapterTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000034 /* PlayerSource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerSource.swift; sourceTree = "<group>"; };
+		A20000000000000000000035 /* AudioProcessMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioProcessMonitor.swift; sourceTree = "<group>"; };
+		B20000000000000000000008 /* SourceArbiterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceArbiterTests.swift; sourceTree = "<group>"; };
 		A20000000000000000000040 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = "de.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		A20000000000000000000050 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = "de.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		A20000000000000000000041 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = "es.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
@@ -186,6 +193,7 @@
 			isa = PBXGroup;
 			children = (
 				A20000000000000000000004 /* AudioDeviceController.swift */,
+				A20000000000000000000035 /* AudioProcessMonitor.swift */,
 				A20000000000000000000020 /* ProcessTapEngine.swift */,
 			);
 			path = Audio;
@@ -213,6 +221,7 @@
 				A20000000000000000000010 /* LogStreamController.swift */,
 				A20000000000000000000032 /* TidalPlayerLog.swift */,
 				A20000000000000000000033 /* NowPlayingAdapter.swift */,
+				A20000000000000000000034 /* PlayerSource.swift */,
 			);
 			path = NowPlaying;
 			sourceTree = "<group>";
@@ -226,6 +235,7 @@
 				B20000000000000000000005 /* PEQCompatibilityTests.swift */,
 				B20000000000000000000006 /* TidalPlayerLogTests.swift */,
 				B20000000000000000000007 /* NowPlayingAdapterTests.swift */,
+				B20000000000000000000008 /* SourceArbiterTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -372,6 +382,8 @@
 				A10000000000000000000007 /* LogStreamController.swift in Sources */,
 				A10000000000000000000024 /* TidalPlayerLog.swift in Sources */,
 				A10000000000000000000025 /* NowPlayingAdapter.swift in Sources */,
+				A10000000000000000000026 /* PlayerSource.swift in Sources */,
+				A10000000000000000000027 /* AudioProcessMonitor.swift in Sources */,
 				A10000000000000000000008 /* PanelView.swift in Sources */,
 				A10000000000000000000021 /* Theme.swift in Sources */,
 				A10000000000000000000011 /* PEQModels.swift in Sources */,
@@ -405,6 +417,8 @@
 				B10000000000000000000013 /* TidalPlayerLogTests.swift in Sources */,
 				B10000000000000000000014 /* NowPlayingAdapter.swift in Sources */,
 				B10000000000000000000015 /* NowPlayingAdapterTests.swift in Sources */,
+				B10000000000000000000016 /* PlayerSource.swift in Sources */,
+				B10000000000000000000017 /* SourceArbiterTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
