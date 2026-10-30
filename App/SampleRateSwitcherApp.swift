@@ -65,7 +65,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private static let quitWarningSuppressedKey = "quitWarning.suppressed"
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        UpdateChecker.shared.checkAtLaunch()
+        // Starts Sparkle's scheduled checks.
+        _ = Updates.shared
     }
 
     /// A DAC whose volume Hertzwise applies plays at its own full level once
@@ -145,7 +146,7 @@ struct SampleRateSwitcherApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @State private var model = SampleRateModel()
     @State private var eq = EQModel()
-    private let updates = UpdateChecker.shared
+    private let updates = Updates.shared
 
     var body: some Scene {
         MenuBarExtra {

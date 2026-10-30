@@ -55,9 +55,6 @@
 "Headphone EQ" = "耳机均衡器";
 "Parametric EQ" = "参数均衡器";
 "Update available — %@" = "有可用更新 — %@";
-"Checking for updates…" = "正在检查更新…";
-"Hertzwise is up to date" = "Hertzwise 已是最新版本";
-"Update check failed: %@" = "检查更新失败：%@";
 "Check for Updates…" = "检查更新…";
 "EQ is on — playback is no longer bit-perfect" = "均衡器已开启 — 播放不再是 bit-perfect";
 "Output sample rate" = "输出采样率";

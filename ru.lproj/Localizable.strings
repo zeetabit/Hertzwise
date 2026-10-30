@@ -12,7 +12,6 @@
 "Output set to %@" = "На выходе установлено %@";
 "Drag a point: frequency × gain · Scroll: Q" = "Перетаскивание точки: частота × усиление · Прокрутка: Q";
 "Switching" = "Переключение";
-"Checking for updates…" = "Проверка обновлений…";
 "EQ is on — playback is no longer bit-perfect" = "EQ включён — воспроизведение больше не bit-perfect";
 "More" = "Ещё";
 "Profile name" = "Имя профиля";
@@ -64,7 +63,6 @@
 "Equalizer" = "Эквалайзер";
 "Auto switch" = "Автопереключение";
 "The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "Частота дискретизации, на которую рассчитан этот пресет (44.1 kHz для опубликованных пресетов AutoEq). Hertzwise точно повторяет эту АЧХ на любой частоте воспроизведения.";
-"Update check failed: %@" = "Ошибка проверки обновлений: %@";
 "Follow System" = "Как в системе";
 "Failed to switch output sample rate" = "Не удалось переключить частоту выхода";
 "Output peak protected — lower boost or preamp" = "Пик на выходе ограничен — уменьшите подъём или предусилитель";
@@ -84,7 +82,6 @@
 "Source" = "Источник";
 "Import AutoEQ…" = "Импорт AutoEQ…";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "Импортировано полос из %2$@: %1$ld (значений, ограниченных допустимым диапазоном: %3$ld).";
-"Hertzwise is up to date" = "Установлена последняя версия Hertzwise";
 "Failed to switch output device" = "Не удалось переключить устройство вывода";
 "Log stream started" = "Поток журнала запущен";
 "Previous track" = "Предыдущий трек";

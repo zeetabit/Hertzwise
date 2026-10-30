@@ -28,6 +28,12 @@
     <string>Hertzwise needs audio input access to receive that audio for the volume and headphone EQ. It never records your microphone.</string>
     <key>NSAudioCaptureUsageDescription</key>
     <string>Hertzwise taps the audio playing to the devices you choose, to apply their volume and your headphone EQ before it reaches them.</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUFeedURL</key>
+    <string>https://github.com/zeetabit/Hertzwise/releases/latest/download/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>UBc1K2BMZWVBq5XR98xpad8ok9miGghCRbXhv+Nh6Qo=</string>
     <key>NSMediaLibraryUsageDescription</key>
     <string>Hertzwise needs access to your media library to read now playing metadata.</string>
 </dict>

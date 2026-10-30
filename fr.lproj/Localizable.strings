@@ -12,7 +12,6 @@
 "Output set to %@" = "Sortie réglée sur %@";
 "Drag a point: frequency × gain · Scroll: Q" = "Glisser un point : fréquence × gain · Défiler : Q";
 "Switching" = "Changement";
-"Checking for updates…" = "Recherche de mises à jour…";
 "EQ is on — playback is no longer bit-perfect" = "EQ activé — la lecture n’est plus bit-perfect";
 "More" = "Plus";
 "Profile name" = "Nom du profil";
@@ -64,7 +63,6 @@
 "Equalizer" = "Égaliseur";
 "Auto switch" = "Changement auto";
 "The sample rate this preset was fitted at — 44.1 kHz for AutoEq's published presets. Hertzwise reproduces this response at every playback rate." = "La fréquence d’échantillonnage pour laquelle ce préréglage a été ajusté — 44.1 kHz pour les préréglages publiés par AutoEq. Hertzwise reproduit cette réponse à toutes les fréquences de lecture.";
-"Update check failed: %@" = "Échec de la recherche de mises à jour : %@";
 "Follow System" = "Langue du système";
 "Failed to switch output sample rate" = "Échec du changement de fréquence de sortie";
 "Output peak protected — lower boost or preamp" = "Crête de sortie protégée — baissez le boost ou le préampli";
@@ -84,7 +82,6 @@
 "Source" = "Source";
 "Import AutoEQ…" = "Importer AutoEQ…";
 "Imported %1$ld bands from %2$@ (%3$ld values limited to the supported range)." = "%1$ld bandes importées depuis %2$@ (%3$ld valeurs ramenées à la plage prise en charge).";
-"Hertzwise is up to date" = "Hertzwise est à jour";
 "Failed to switch output device" = "Échec du changement de périphérique de sortie";
 "Log stream started" = "Flux du journal démarré";
 "Previous track" = "Morceau précédent";

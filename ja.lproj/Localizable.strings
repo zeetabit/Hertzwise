@@ -55,9 +55,6 @@
 "Headphone EQ" = "ヘッドホン EQ";
 "Parametric EQ" = "パラメトリック EQ";
 "Update available — %@" = "アップデートがあります — %@";
-"Checking for updates…" = "アップデートを確認中…";
-"Hertzwise is up to date" = "Hertzwise は最新です";
-"Update check failed: %@" = "アップデートの確認に失敗しました：%@";
 "Check for Updates…" = "アップデートを確認…";
 "EQ is on — playback is no longer bit-perfect" = "EQ オン — 再生はビットパーフェクトではありません";
 "Output sample rate" = "出力サンプルレート";

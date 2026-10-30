@@ -1,5 +1,6 @@
-# Pushing a tag like v1.0.0 builds, signs and publishes that release. The
-# annotated tag's message is the release notes. Signing uses the "Hertzwise"
+# Pushing a tag like v1.0.0 builds, signs and publishes that release, with the
+# Sparkle appcast the app checks for updates. The annotated tag's message is
+# the release notes. Signing uses the "Hertzwise"
 # identity from the repository secrets, in a keychain that lives only for the
 # job; see scripts/release.sh for why one stable identity matters.
 name: Release
@@ -15,7 +16,7 @@ jobs:
   release:
     runs-on: macos-26
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
           submodules: recursive
@@ -37,13 +38,15 @@ jobs:
           security list-keychains -d user -s "$keychain" $(security list-keychains -d user | tr -d '"')
 
       - name: Build, sign and package
+        env:
+          SPARKLE_ED_PRIVATE_KEY: ${{ secrets.SPARKLE_ED_PRIVATE_KEY }}
         run: scripts/release.sh "$GITHUB_REF_NAME"
 
       - name: Publish the release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" build/release/Hertzwise-*.dmg \
+          gh release create "$GITHUB_REF_NAME" build/release/Hertzwise-*.dmg build/release/appcast.xml \
             --title "Hertzwise ${GITHUB_REF_NAME#v}" --notes-from-tag --verify-tag
 
       - name: Remove the signing keychain
