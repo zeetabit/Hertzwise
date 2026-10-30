@@ -34,6 +34,8 @@ final class ProcessTapEngine: @unchecked Sendable {
     /// follows the system output. The volume stage binds to its DAC: an app
     /// such as Tidal keeps playing there after the system output moves.
     private let boundDeviceUID: String?
+    /// The device the running path renders to. Control queue only.
+    private var outputDeviceID = AudioObjectID(kAudioObjectUnknown)
     private var gainListenerBlock: AudioObjectPropertyListenerBlock?
     private var gainListenerDevice = AudioObjectID(kAudioObjectUnknown)
     private let log: Logger
@@ -109,7 +111,9 @@ final class ProcessTapEngine: @unchecked Sendable {
     /// Output frames the tap had no samples for, filled with silence: each
     /// is an audible dropout.
     private let missingFrames = Atomic<UInt64>(0)
-    /// Linear gain for `.allButHertzwise`, at most 1, set from any thread.
+    private let renderedFrames = Atomic<UInt64>(0)
+    /// Linear gain, at most 1, set from any thread: the device's volume when
+    /// Hertzwise controls it, otherwise 1.
     private let targetGainBits = Atomic<UInt32>(Float(1).bitPattern)
     /// The gain the last render ended at. Render thread only.
     private var renderGain: Float = 1
@@ -117,6 +121,13 @@ final class ProcessTapEngine: @unchecked Sendable {
     private let outputPeakBits = Atomic<UInt32>(0)
     private var healthTimer: DispatchSourceTimer?
     private var silentWindows = 0
+    /// Health windows since the path started; the first can be short while
+    /// the tap catches up.
+    private var healthWindows = 0
+    private var lastSelfHeal = Date.distantPast
+    private var lastHealthReport = Date()
+    /// Rendered frames as a share of what the device played, last window.
+    private var previousRenderRatio = 1.0
     private var reportedSilence = false
 
     private var rateListenerDevice = AudioObjectID(kAudioObjectUnknown)
@@ -124,13 +135,23 @@ final class ProcessTapEngine: @unchecked Sendable {
     private var defaultDeviceListenerBlock: AudioObjectPropertyListenerBlock?
     private var rebuildWork: DispatchWorkItem?
 
-    /// Serializes all engine control (start/stop/apply) and the rate-change
-    /// listener off the main thread, so toggling the EQ never blocks the UI on
-    /// Core Audio device creation.
-    let controlQueue = DispatchQueue(label: "io.github.zeetabit.hertzwise.eq.control")
+    /// Serializes all engine control (start/stop/apply) and the listeners off
+    /// the main thread, so toggling the EQ never blocks the UI on Core Audio
+    /// device creation. Shared by every engine: building and destroying taps
+    /// and aggregates for several engines at once during a rate change has
+    /// deadlocked coreaudiod.
+    private static let sharedControlQueue = DispatchQueue(label: "io.github.zeetabit.hertzwise.tap.control")
+    var controlQueue: DispatchQueue { Self.sharedControlQueue }
 
     private(set) var isRunning = false
     private(set) var lastError: String?
+
+    /// While the EQ renders Apple Music, the volume stage leaves Music out:
+    /// a tap still receives a process another tap mutes, so the DAC would
+    /// play Music twice.
+    private static let eqRendersMusic = Atomic<Bool>(false)
+    private static let eqRendersMusicDidChange = Notification.Name("io.github.zeetabit.hertzwise.eqRendersMusicDidChange")
+    private var observers: [NSObjectProtocol] = []
 
     init(source: Source = .appleMusic, deviceUID: String? = nil) {
         self.source = source
@@ -143,9 +164,28 @@ final class ProcessTapEngine: @unchecked Sendable {
             log = Logger(subsystem: "io.github.zeetabit.hertzwise", category: "VolumeEngine")
             aggregateUID = "io.github.zeetabit.hertzwise.volume-aggregate"
         }
+        switch source {
+        case .appleMusic:
+            observers.append(NotificationCenter.default.addObserver(
+                forName: HostVolumeControl.didChange, object: nil, queue: nil) { [weak self] _ in
+                    guard let self else { return }
+                    self.controlQueue.async {
+                        guard self.isRunning else { return }
+                        self.updateGain(self.outputDeviceID)
+                    }
+                })
+        case .allButHertzwise:
+            // Posted by the EQ on the shared control queue, so this runs
+            // before the EQ's teardown: Music is muted again first.
+            observers.append(NotificationCenter.default.addObserver(
+                forName: Self.eqRendersMusicDidChange, object: nil, queue: nil) { [weak self] _ in
+                    _ = self?.replacePath()
+                })
+        }
     }
 
     deinit {
+        observers.forEach(NotificationCenter.default.removeObserver)
         // The IOProc reads the scratch buffers, so it must be gone first.
         stop()
         spectrumScratch.deallocate()
@@ -178,6 +218,7 @@ final class ProcessTapEngine: @unchecked Sendable {
         guard let outputUID = deviceUID(outputDevice) else {
             return fail("Couldn't read the output device UID.")
         }
+        outputDeviceID = outputDevice
         if holdsProcessingRate { holdProcessingRate(on: outputDevice) }
         sampleRate = nominalSampleRate(outputDevice) ?? Self.processingRate
 
@@ -236,9 +277,7 @@ final class ProcessTapEngine: @unchecked Sendable {
         processor.requestReset()
         processor.setActive(desiredActive)
 
-        if source == .allButHertzwise {
-            setGain(deviceGain(outputDevice))
-        }
+        updateGain(outputDevice)
         // The first render starts at the volume already set, not ramping
         // down from full level: the tap has muted the device's own output.
         renderGain = Float(bitPattern: targetGainBits.load(ordering: .relaxed))
@@ -256,17 +295,21 @@ final class ProcessTapEngine: @unchecked Sendable {
         isRunning = true
         dismantleRetiringPath()
         installLifecycleListeners(device: outputDevice)
+        if source == .appleMusic { Self.setEQRendersMusic(true) }
         log.notice("EQ engine started at \(self.sampleRate, privacy: .public) Hz; tap in \(Self.describe(self.inputFormat), privacy: .public); device out \(Self.describe(self.outputFormat), privacy: .public)")
         startHealthTimer()
         return true
     }
 
-    /// Volume stage, control queue: a path kept running through a rate change
-    /// can fall out of step with the device and deliver ~1% too few samples,
-    /// heard as dropouts. A fresh path is right, so build one while the old
-    /// keeps playing and muting, then hand over. On failure the old one stays.
-    private func replacePathForRateChange() {
-        guard isRunning else { return }
+    /// Control queue. Builds a fresh path while the old keeps playing and
+    /// muting, then hands over: tearing down first would unmute the player
+    /// for seconds, at full level on a DAC that ignores the Mac's volume. A
+    /// path kept running through a rate change instead can fall out of step
+    /// with the device and deliver ~1% too few samples, heard as dropouts.
+    /// On failure the old path stays.
+    private func replacePath() -> Bool {
+        guard isRunning else { return false }
+        let oldDevice = outputDeviceID
         stopHealthTimer()
         removeLifecycleListeners()
         retiringPath = (tapID, aggregateID, ioProcID)
@@ -279,22 +322,27 @@ final class ProcessTapEngine: @unchecked Sendable {
         let started = start()
         isReplacingPath = false
         if started {
-            log.notice("Volume path replaced at \(self.sampleRate, privacy: .public) Hz")
-            return
+            log.notice("Path replaced at \(self.sampleRate, privacy: .public) Hz")
+            return true
         }
         // start() failed and tore down its partial path; resume the old one.
-        guard let old = retiringPath else { return }
+        guard let old = retiringPath else { return false }
         retiringPath = nil
+        outputDeviceID = oldDevice
         tapID = old.tap
         aggregateID = old.aggregate
         ioProcID = old.ioProc
         if let oldProc = old.ioProc { AudioDeviceStart(old.aggregate, oldProc) }
         isRunning = true
-        if let device = boundDeviceUID.flatMap({ deviceID(uid: $0) }) {
-            installLifecycleListeners(device: device)
-        }
+        installLifecycleListeners(device: oldDevice)
         startHealthTimer()
-        log.error("Volume path replacement failed; kept the old path")
+        log.error("Path replacement failed; kept the old path")
+        return false
+    }
+
+    private static func setEQRendersMusic(_ renders: Bool) {
+        guard eqRendersMusic.exchange(renders, ordering: .relaxed) != renders else { return }
+        NotificationCenter.default.post(name: eqRendersMusicDidChange, object: nil)
     }
 
     private func dismantleRetiringPath() {
@@ -313,6 +361,8 @@ final class ProcessTapEngine: @unchecked Sendable {
         rebuildWork?.cancel()
         rebuildWork = nil
         removeLifecycleListeners()
+        // Before the EQ's tap goes, the volume stage takes Music back.
+        if source == .appleMusic, !isReplacingPath, isRunning { Self.setEQRendersMusic(false) }
         tearDownAudio()
         if !isReplacingPath { dismantleRetiringPath() }
         processor.setActive(false)
@@ -403,10 +453,16 @@ final class ProcessTapEngine: @unchecked Sendable {
         let outputFrames = frameCapacity(of: outList, format: outputFormat)
         guard outputFrames > 0 else { return }
         let inputFrames = frameCapacity(of: inList, format: inputFormat, firstBuffer: inputFirstBuffer)
+        if inputFrames < outputFrames {
+            missingFrames.wrappingAdd(UInt64(outputFrames - inputFrames), ordering: .relaxed)
+        }
         let outputChannels = Int(outputFormat.mChannelsPerFrame)
         let capturedChannels = min(Int(inputFormat.mChannelsPerFrame), BiquadProcessor.maximumChannels)
         let renderedChannels = min(outputChannels, BiquadProcessor.maximumChannels)
         let spectrumFrames = min(outputFrames, Self.spectrumCapacity)
+        let startGain = renderGain
+        let targetGain = Float(bitPattern: targetGainBits.load(ordering: .relaxed))
+        let gainStep = (targetGain - startGain) / Float(outputFrames)
 
         // Blocks of up to `blockFrames`, channel by channel: the processor runs
         // each section over a whole block (vDSP) instead of sample by sample.
@@ -435,6 +491,12 @@ final class ProcessTapEngine: @unchecked Sendable {
                                   outputStride: destination.stride,
                                   frameOffset: start,
                                   frameCount: count)
+                if gainStep != 0 || targetGain != 1 {
+                    for index in 0..<count {
+                        let gain = gainStep == 0 ? targetGain : startGain + gainStep * Float(start + index + 1)
+                        out[index * destination.stride] *= gain
+                    }
+                }
 
                 var peak: Float = 0
                 vDSP_maxmgv(inputScratch, 1, &peak, vDSP_Length(count))
@@ -455,7 +517,9 @@ final class ProcessTapEngine: @unchecked Sendable {
             start += count
         }
         processor.endRender(frameCount: outputFrames)
+        renderGain = targetGain
         renderCycles.wrappingAdd(1, ordering: .relaxed)
+        renderedFrames.wrappingAdd(UInt64(outputFrames), ordering: .relaxed)
 
         if spectrumFrames > 0, let sampleSinkPointer {
             let sampleSink = Unmanaged<SpectrumAnalyzer>
@@ -513,6 +577,7 @@ final class ProcessTapEngine: @unchecked Sendable {
             outputPeakBits.store(outPeak.bitPattern, ordering: .relaxed)
         }
         renderCycles.wrappingAdd(1, ordering: .relaxed)
+        renderedFrames.wrappingAdd(UInt64(outputFrames), ordering: .relaxed)
     }
 
     /// Fills `inputScratch[0..<count]` with one output channel's source: the
@@ -628,8 +693,13 @@ final class ProcessTapEngine: @unchecked Sendable {
     private func startHealthTimer() {
         stopHealthTimer()
         silentWindows = 0
+        healthWindows = 0
+        previousRenderRatio = 1
+        lastHealthReport = Date()
         reportedSilence = false
         _ = renderCycles.exchange(0, ordering: .relaxed)
+        _ = missingFrames.exchange(0, ordering: .relaxed)
+        _ = renderedFrames.exchange(0, ordering: .relaxed)
         _ = inputPeakBits.exchange(0, ordering: .relaxed)
         _ = outputPeakBits.exchange(0, ordering: .relaxed)
         let timer = DispatchSource.makeTimerSource(queue: controlQueue)
@@ -657,6 +727,31 @@ final class ProcessTapEngine: @unchecked Sendable {
             reportedSilence = silent
             DispatchQueue.main.async { [weak self] in self?.onInputSilence?(silent) }
         }
+
+        // A path built around a rate change can report matching formats yet
+        // take its tap at the old rate, or render slower than the device
+        // plays: either is heard as gaps. Only a fresh path fixes it.
+        let now = Date()
+        let expected = now.timeIntervalSince(lastHealthReport) * sampleRate
+        let renderRatio = Double(renderedFrames.exchange(0, ordering: .relaxed)) / expected
+        lastHealthReport = now
+        // Two windows in a row, not one: a window can end mid-render, and
+        // one where IO started late is short without anything wrong.
+        let renderShort = renderRatio < 0.99 && previousRenderRatio < 0.99
+        previousRenderRatio = renderRatio
+        // Idle IO (an autostart path with nothing playing) starts the count
+        // over: the windows where it starts again are partial.
+        healthWindows = cycles > 0 ? healthWindows + 1 : 0
+        guard healthWindows > 2, now.timeIntervalSince(lastSelfHeal) > 10 else { return }
+        let tapShortfall = Double(missing) / expected
+        guard tapShortfall > 0.005 || renderShort else { return }
+        lastSelfHeal = now
+        log.error("Path short: tap \(Int(tapShortfall * 1000), privacy: .public)‰ missing, rendered \(Int(renderRatio * 1000), privacy: .public)‰ of the device's frames; replacing it")
+        if source == .appleMusic {
+            rebuildAudioPath()
+        } else {
+            _ = replacePath()
+        }
     }
 
     private static func dBFS(_ peak: Float) -> String {
@@ -682,7 +777,11 @@ final class ProcessTapEngine: @unchecked Sendable {
             description = CATapDescription(processes: [processObject], deviceUID: deviceUID, stream: 0)
             description.name = "Hertzwise EQ Tap"
         case .allButHertzwise:
-            description = CATapDescription(excludingProcesses: [processObject], deviceUID: deviceUID, stream: 0)
+            var excluded = [processObject]
+            if Self.eqRendersMusic.load(ordering: .relaxed), let music = self.processObject(bundleID: musicBundleID) {
+                excluded.append(music)
+            }
+            description = CATapDescription(excludingProcesses: excluded, deviceUID: deviceUID, stream: 0)
             description.name = "Hertzwise Volume Tap"
         }
         description.isPrivate = true
@@ -739,13 +838,6 @@ final class ProcessTapEngine: @unchecked Sendable {
             // change of rate needs a rebuild.
             guard let self else { return }
             guard let rate = self.nominalSampleRate(device), abs(rate - self.sampleRate) >= 0.5 else { return }
-            if self.source == .allButHertzwise {
-                // Not the EQ's rebuild: tearing down first would drop the
-                // tap, and its mute, for seconds, so full level would reach
-                // the DAC. The replacement is built before the old one goes.
-                self.replacePathForRateChange()
-                return
-            }
             self.scheduleRebuild()
         }
         let status = AudioObjectAddPropertyListenerBlock(device, &address, controlQueue, block)
@@ -754,20 +846,17 @@ final class ProcessTapEngine: @unchecked Sendable {
             rateListenerBlock = block
         }
 
-        if source == .allButHertzwise {
-            let gainBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
-                guard let self else { return }
-                self.setGain(self.deviceGain(device))
-            }
-            for selector in [kAudioDevicePropertyVolumeScalar, kAudioDevicePropertyMute] {
-                var gainAddress = AudioObjectPropertyAddress(mSelector: selector,
-                                                             mScope: kAudioDevicePropertyScopeOutput,
-                                                             mElement: kAudioObjectPropertyElementMain)
-                AudioObjectAddPropertyListenerBlock(device, &gainAddress, controlQueue, gainBlock)
-            }
-            gainListenerBlock = gainBlock
-            gainListenerDevice = device
+        let gainBlock: AudioObjectPropertyListenerBlock = { [weak self] _, _ in
+            self?.updateGain(device)
         }
+        for selector in [kAudioDevicePropertyVolumeScalar, kAudioDevicePropertyMute] {
+            var gainAddress = AudioObjectPropertyAddress(mSelector: selector,
+                                                         mScope: kAudioDevicePropertyScopeOutput,
+                                                         mElement: kAudioObjectPropertyElementMain)
+            AudioObjectAddPropertyListenerBlock(device, &gainAddress, controlQueue, gainBlock)
+        }
+        gainListenerBlock = gainBlock
+        gainListenerDevice = device
         guard boundDeviceUID == nil else { return }
 
         var defaultAddress = AudioObjectPropertyAddress(
@@ -832,19 +921,10 @@ final class ProcessTapEngine: @unchecked Sendable {
 
     private func rebuildAudioPath() {
         guard isRunning else { return }
-        let shouldBeActive = desiredActive
-        removeLifecycleListeners()
-        tearDownAudio()
-        isRunning = false
-        processor.requestReset()
-
-        desiredActive = shouldBeActive
-        if start() {
+        if replacePath() {
             onSampleRateChange?(sampleRate)
-            log.notice("EQ audio path rebuilt at \(self.sampleRate, privacy: .public) Hz")
         } else {
-            let message = lastError ?? "Couldn't rebuild the EQ audio path."
-            onRuntimeError?(message)
+            onRuntimeError?(lastError ?? "Couldn't rebuild the EQ audio path.")
         }
     }
 
@@ -1040,6 +1120,11 @@ final class ProcessTapEngine: @unchecked Sendable {
         }
         guard status == noErr, device != kAudioObjectUnknown else { return nil }
         return device
+    }
+
+    private func updateGain(_ device: AudioObjectID) {
+        let controlsVolume = source == .allButHertzwise || deviceUID(device).map(HostVolumeControl.isEnabled) == true
+        setGain(controlsVolume ? deviceGain(device) : 1)
     }
 
     /// The device's own volume as a linear gain, from its dB value; 0 when

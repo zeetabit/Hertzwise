@@ -21,6 +21,7 @@ enum HostVolumeControl {
     private static let key = "volumeControl.devices"
     /// Known to ignore the Mac's volume, by UID prefix: on unless turned off.
     private static let ignoresHostVolume = ["AppleUSBAudioEngine:Lotoo:PAW-S1:"]
+    static let didChange = Notification.Name("io.github.zeetabit.hertzwise.hostVolumeControlDidChange")
 
     static func isEnabled(uid: String) -> Bool {
         stored[uid] ?? ignoresHostVolume.contains { uid.hasPrefix($0) }
@@ -30,6 +31,7 @@ enum HostVolumeControl {
         var devices = stored
         devices[uid] = enabled
         UserDefaults.standard.set(devices, forKey: key)
+        NotificationCenter.default.post(name: didChange, object: nil)
     }
 
     private static var stored: [String: Bool] {
