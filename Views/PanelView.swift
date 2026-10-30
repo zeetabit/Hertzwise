@@ -656,6 +656,10 @@ private struct OutputCard: View {
                                 get: { model.volumeControlledUIDs.contains(device.uid) },
                                 set: { model.setVolumeControl($0, for: device) }
                             ))
+                            Toggle("Equalizer", isOn: Binding(
+                                get: { OutputPaths.shared.eqDeviceUIDs.contains(device.uid) },
+                                set: { OutputPaths.shared.setDeviceEQ($0, uid: device.uid) }
+                            ))
                         } label: {
                             if device.id == model.currentOutputDeviceID {
                                 Label(device.name, systemImage: "checkmark")

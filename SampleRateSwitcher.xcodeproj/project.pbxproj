@@ -24,6 +24,7 @@
 		A10000000000000000000013 /* AutoEQParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000018 /* AutoEQParser.swift */; };
 		A10000000000000000000014 /* BiquadProcessor.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000019 /* BiquadProcessor.swift */; };
 		A10000000000000000000015 /* ProcessTapEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000020 /* ProcessTapEngine.swift */; };
+		A10000000000000000000099 /* OutputPaths.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000099 /* OutputPaths.swift */; };
 		A10000000000000000000016 /* EQModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000021 /* EQModel.swift */; };
 		A10000000000000000000017 /* EQView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000022 /* EQView.swift */; };
 		A10000000000000000000018 /* SpectrumAnalyzer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A20000000000000000000023 /* SpectrumAnalyzer.swift */; };
@@ -81,6 +82,7 @@
 		A20000000000000000000018 /* AutoEQParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutoEQParser.swift; sourceTree = "<group>"; };
 		A20000000000000000000019 /* BiquadProcessor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BiquadProcessor.swift; sourceTree = "<group>"; };
 		A20000000000000000000020 /* ProcessTapEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessTapEngine.swift; sourceTree = "<group>"; };
+		A20000000000000000000099 /* OutputPaths.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OutputPaths.swift; sourceTree = "<group>"; };
 		A20000000000000000000021 /* EQModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EQModel.swift; sourceTree = "<group>"; };
 		A20000000000000000000022 /* EQView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EQView.swift; sourceTree = "<group>"; };
 		A20000000000000000000023 /* SpectrumAnalyzer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SpectrumAnalyzer.swift; sourceTree = "<group>"; };
@@ -198,6 +200,7 @@
 				A20000000000000000000004 /* AudioDeviceController.swift */,
 				A20000000000000000000035 /* AudioProcessMonitor.swift */,
 				A20000000000000000000020 /* ProcessTapEngine.swift */,
+				A20000000000000000000099 /* OutputPaths.swift */,
 			);
 			path = Audio;
 			sourceTree = "<group>";
@@ -397,6 +400,7 @@
 				A10000000000000000000013 /* AutoEQParser.swift in Sources */,
 				A10000000000000000000014 /* BiquadProcessor.swift in Sources */,
 				A10000000000000000000015 /* ProcessTapEngine.swift in Sources */,
+				A10000000000000000000099 /* OutputPaths.swift in Sources */,
 				A10000000000000000000016 /* EQModel.swift in Sources */,
 				A10000000000000000000017 /* EQView.swift in Sources */,
 				A10000000000000000000018 /* SpectrumAnalyzer.swift in Sources */,

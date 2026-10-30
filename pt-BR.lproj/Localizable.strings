@@ -1,5 +1,6 @@
 /* Hertzwise — Brazilian Portuguese */
-"Equalizer on — Apple Music is no longer bit-perfect." = "Equalizador ativado — o Apple Music não é mais bit-perfect.";
+"Equalizer on — the devices it processes are no longer bit-perfect." = "Equalizador ativado — os dispositivos que ele processa não são mais bit-perfect.";
+"No connected device has Equalizer on. Turn it on for a device in the output device menu." = "Nenhum dispositivo conectado está com o equalizador ativado. Ative-o para um dispositivo no menu do dispositivo de saída.";
 "No filters found in %1$@." = "Nenhum filtro encontrado em %1$@.";
 "No bands. Add one, or import an AutoEQ ParametricEQ.txt." = "Nenhuma banda. Adicione uma ou importe um ParametricEQ.txt do AutoEQ.";
 "Imported %1$ld bands from %2$@ (%3$ld unsupported filters skipped)." = "%1$ld bandas importadas de %2$@ (%3$ld filtros não suportados ignorados).";
@@ -69,7 +70,6 @@
 "Output peak protected — lower boost or preamp" = "Pico de saída protegido — reduza o ganho ou o pré-amp";
 "Delete" = "Apagar";
 "Dump recent logs" = "Exportar logs recentes";
-"No audio from Apple Music is reaching the EQ." = "Nenhum áudio do Apple Music está chegando ao EQ.";
 "Log parser" = "Analisador de log";
 "Hi-Res Lossless" = "Hi-Res Lossless";
 "New Profile" = "Novo Perfil";

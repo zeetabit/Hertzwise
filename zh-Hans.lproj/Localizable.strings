@@ -21,7 +21,8 @@
 "Drag a point: frequency × gain · Scroll: Q" = "拖动圆点：频率 × 增益 · 滚轮：Q";
 "Drag: frequency × gain · Hover point + scroll: Q · Shift: fine" = "拖动：频率 × 增益 · 悬停圆点并滚动：Q · Shift：微调";
 "Choose an AutoEQ ParametricEQ.txt file" = "选择一个 AutoEQ ParametricEQ.txt 文件";
-"Equalizer on — Apple Music is no longer bit-perfect." = "均衡器已开启 — Apple Music 不再是 bit-perfect。";
+"Equalizer on — the devices it processes are no longer bit-perfect." = "均衡器已开启 — 它处理的设备不再是 bit-perfect。";
+"No connected device has Equalizer on. Turn it on for a device in the output device menu." = "没有已连接的设备开启了均衡器。请在输出设备菜单中为设备开启。";
 "Equalizer off — bit-perfect playback restored." = "均衡器已关闭 — 已恢复 bit-perfect 播放。";
 "Couldn't start the EQ engine." = "无法启动均衡器引擎。";
 "Imported %1$ld bands from %2$@." = "已从 %2$@ 导入 %1$ld 个频段。";
@@ -108,7 +109,6 @@
 
 /* EQ audio-input permission */
 "Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Hertzwise 需要音频输入权限才能运行均衡器。请在“系统设置 → 隐私与安全性 → 麦克风”中允许。";
-"No audio from Apple Music is reaching the EQ." = "没有来自 Apple Music 的音频进入均衡器。";
 
 /* Fixed EQ processing rate */
 "Resampled" = "重采样";

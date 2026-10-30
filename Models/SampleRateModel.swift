@@ -83,9 +83,6 @@ final class SampleRateModel {
     @ObservationIgnored private var musicObserver: NSObjectProtocol?
     @ObservationIgnored private var panelVisible = false
     @ObservationIgnored private var processMonitor: AudioProcessMonitor?
-    /// The volume stage, one per connected device with "Control volume" on,
-    /// by device UID.
-    @ObservationIgnored private var volumeEngines: [String: ProcessTapEngine] = [:]
     @ObservationIgnored private var outputtingBundleIDs: Set<String> = []
     @ObservationIgnored private var playbackDevices: [String: Set<AudioObjectID>] = [:]
     @ObservationIgnored private var arbiter = SourceArbiter()
@@ -699,22 +696,12 @@ final class SampleRateModel {
         applyLogAutoSwitch(sampleRate: rate, deviceUID: tidalDeviceUID)
     }
 
-    /// Runs the volume stage on every connected device with "Control volume"
-    /// on, whether or not it is the system output: Tidal keeps playing to its
-    /// own device. Every other device keeps its own volume and gets no tap.
+    /// Paths follow every connected device, whether or not it is the system
+    /// output: Tidal keeps playing to its own device.
     private func updateVolumeStage() {
-        let enabled = Set(audioController.outputDevices().map(\.uid).filter { !$0.isEmpty && HostVolumeControl.isEnabled(uid: $0) })
-        assign(\.volumeControlledUIDs, enabled)
-        let wanted = enabled
-        for uid in wanted where volumeEngines[uid] == nil {
-            let engine = ProcessTapEngine(source: .allButHertzwise, deviceUID: uid)
-            volumeEngines[uid] = engine
-            engine.controlQueue.async { engine.start() }
-        }
-        for (uid, engine) in volumeEngines where !wanted.contains(uid) {
-            volumeEngines[uid] = nil
-            engine.controlQueue.async { engine.stop() }
-        }
+        let uids = audioController.outputDevices().map(\.uid).filter { !$0.isEmpty }
+        assign(\.volumeControlledUIDs, Set(uids.filter { HostVolumeControl.isEnabled(uid: $0) }))
+        OutputPaths.shared.updateDevices(connected: uids)
     }
 
     private func updateOutputNotice() {

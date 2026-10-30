@@ -2,17 +2,26 @@
 
 Automatic sample-rate switching for Mac music players, so your DAC follows every track and lossless plays bit-perfect.
 
-Hertzwise is a fork of [SyncHz](https://github.com/jcongaku/SyncHz) by Gary Kong. It keeps SyncHz's Apple Music support and headphone EQ, and adds other players.
+Hertzwise is a fork of [SyncHz](https://github.com/jcongaku/SyncHz) by Gary Kong. It keeps SyncHz's Apple Music support and headphone EQ, and adds other players, a volume stage for DACs that ignore the Mac's volume, and a per-device EQ.
 
 ## Status
 
 | Player | Rate switching | Status |
 |---|---|---|
 | Apple Music | Yes | From SyncHz |
-| Tidal (exclusive mode off) | Planned | In progress |
+| Tidal (exclusive mode off) | Yes | New |
 | YouTube Music | Planned | Later |
 
-For how rate detection and the EQ work, see the [SyncHz README](https://github.com/jcongaku/SyncHz#readme). Everything there applies here.
+For how rate detection and the EQ filters work, see the [SyncHz README](https://github.com/jcongaku/SyncHz#readme).
+
+## Per-device volume and EQ
+
+Each output device's submenu has two switches, on by default only for the Lotoo PAW S1:
+
+- **Control volume**: for a DAC that accepts the Mac's volume but ignores it. Hertzwise applies that volume to the samples; at full volume they reach the DAC unchanged.
+- **Equalizer**: the headphone EQ processes everything playing to that device, from any app, while the EQ is on.
+
+Both run in one muted process tap per device, so each device is processed once.
 
 ## Install
 

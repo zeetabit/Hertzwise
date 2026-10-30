@@ -15,22 +15,42 @@ struct AudioOutputDevice: Identifiable, Hashable {
     let iconName: String
 }
 
-/// Per output device: whether Hertzwise applies the Mac's volume to the
-/// samples, for DACs that accept a volume from the Mac but ignore it.
-enum HostVolumeControl {
-    private static let key = "volumeControl.devices"
-    /// Known to ignore the Mac's volume, by UID prefix: on unless turned off.
-    private static let ignoresHostVolume = ["AppleUSBAudioEngine:Lotoo:PAW-S1:"]
-    static let didChange = Notification.Name("io.github.zeetabit.hertzwise.hostVolumeControlDidChange")
+/// A per-device on/off setting, by device UID. Unset, it is on only for
+/// the devices it names by UID prefix.
+struct DeviceSetting {
+    let key: String
+    let onByDefault: [String]
 
-    static func isEnabled(uid: String) -> Bool {
-        stored[uid] ?? ignoresHostVolume.contains { uid.hasPrefix($0) }
+    func isEnabled(uid: String) -> Bool {
+        stored[uid] ?? onByDefault.contains { uid.hasPrefix($0) }
     }
 
-    static func setEnabled(_ enabled: Bool, uid: String) {
+    func setEnabled(_ enabled: Bool, uid: String) {
         var devices = stored
         devices[uid] = enabled
         UserDefaults.standard.set(devices, forKey: key)
+    }
+
+    private var stored: [String: Bool] {
+        UserDefaults.standard.dictionary(forKey: key) as? [String: Bool] ?? [:]
+    }
+}
+
+private let pawS1 = "AppleUSBAudioEngine:Lotoo:PAW-S1:"
+
+/// Per output device: whether Hertzwise applies the Mac's volume to the
+/// samples, for DACs that accept a volume from the Mac but ignore it.
+enum HostVolumeControl {
+    /// On for devices known to ignore the Mac's volume unless turned off.
+    private static let setting = DeviceSetting(key: "volumeControl.devices", onByDefault: [pawS1])
+    static let didChange = Notification.Name("io.github.zeetabit.hertzwise.hostVolumeControlDidChange")
+
+    static func isEnabled(uid: String) -> Bool {
+        setting.isEnabled(uid: uid)
+    }
+
+    static func setEnabled(_ enabled: Bool, uid: String) {
+        setting.setEnabled(enabled, uid: uid)
         NotificationCenter.default.post(name: didChange, object: nil)
     }
 
@@ -47,10 +67,12 @@ enum HostVolumeControl {
         volumes[uid] = volume
         UserDefaults.standard.set(volumes, forKey: volumesKey)
     }
+}
 
-    private static var stored: [String: Bool] {
-        UserDefaults.standard.dictionary(forKey: key) as? [String: Bool] ?? [:]
-    }
+/// Per output device: whether the headphone EQ processes it while the EQ is
+/// on. EQ corrects headphones, so it belongs to the device they plug into.
+enum DeviceEQ {
+    static let setting = DeviceSetting(key: "eq.devices", onByDefault: [pawS1])
 }
 
 struct OutputVolumeInfo {

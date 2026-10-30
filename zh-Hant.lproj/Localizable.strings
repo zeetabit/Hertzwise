@@ -21,7 +21,8 @@
 "Drag a point: frequency × gain · Scroll: Q" = "拖曳圓點：頻率 × 增益 · 捲動：Q";
 "Drag: frequency × gain · Hover point + scroll: Q · Shift: fine" = "拖曳：頻率 × 增益 · 懸停圓點並捲動：Q · Shift：微調";
 "Choose an AutoEQ ParametricEQ.txt file" = "選擇一個 AutoEQ ParametricEQ.txt 檔案";
-"Equalizer on — Apple Music is no longer bit-perfect." = "等化器已開啟 — Apple Music 不再是 bit-perfect。";
+"Equalizer on — the devices it processes are no longer bit-perfect." = "等化器已開啟 — 它處理的裝置不再是 bit-perfect。";
+"No connected device has Equalizer on. Turn it on for a device in the output device menu." = "沒有已連接的裝置開啟等化器。請在輸出裝置選單中為裝置開啟。";
 "Equalizer off — bit-perfect playback restored." = "等化器已關閉 — 已恢復 bit-perfect 播放。";
 "Couldn't start the EQ engine." = "無法啟動等化器引擎。";
 "Imported %1$ld bands from %2$@." = "已從 %2$@ 匯入 %1$ld 個頻段。";
@@ -108,7 +109,6 @@
 
 /* EQ audio-input permission */
 "Hertzwise needs audio input access to run the EQ. Allow it in System Settings → Privacy & Security → Microphone." = "Hertzwise 需要音訊輸入權限才能執行等化器。請在「系統設定 → 隱私權與安全性 → 麥克風」中允許。";
-"No audio from Apple Music is reaching the EQ." = "沒有來自 Apple Music 的音訊進入等化器。";
 
 /* Fixed EQ processing rate */
 "Resampled" = "重新取樣";

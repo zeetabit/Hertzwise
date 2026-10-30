@@ -1,5 +1,6 @@
 /* Hertzwise — Russian */
-"Equalizer on — Apple Music is no longer bit-perfect." = "Эквалайзер включён — Apple Music больше не bit-perfect.";
+"Equalizer on — the devices it processes are no longer bit-perfect." = "Эквалайзер включён — обрабатываемые им устройства больше не bit-perfect.";
+"No connected device has Equalizer on. Turn it on for a device in the output device menu." = "Ни на одном подключённом устройстве эквалайзер не включён. Включите его для устройства в меню устройства вывода.";
 "No filters found in %1$@." = "В %1$@ не найдено фильтров.";
 "No bands. Add one, or import an AutoEQ ParametricEQ.txt." = "Нет полос. Добавьте полосу или импортируйте ParametricEQ.txt из AutoEQ.";
 "Imported %1$ld bands from %2$@ (%3$ld unsupported filters skipped)." = "Импортировано полос из %2$@: %1$ld (пропущено неподдерживаемых фильтров: %3$ld).";
@@ -69,7 +70,6 @@
 "Output peak protected — lower boost or preamp" = "Пик на выходе ограничен — уменьшите подъём или предусилитель";
 "Delete" = "Удалить";
 "Dump recent logs" = "Выгрузить недавние журналы";
-"No audio from Apple Music is reaching the EQ." = "Звук из Apple Music не поступает в EQ.";
 "Log parser" = "Анализ журнала";
 "Hi-Res Lossless" = "Hi-Res без потерь";
 "New Profile" = "Новый профиль";
