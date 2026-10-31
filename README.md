@@ -31,6 +31,15 @@ Each output device's submenu has two switches, on by default only for the Lotoo 
 
 Both run in one muted process tap per device, so each device is processed once.
 
+## How it works
+
+macOS runs each output device at one sample rate and resamples everything to it. Hertzwise sets that rate to the playing track's own rate.
+
+- **Tidal**: Core Audio logs the decoded track's format from inside Tidal's player to the unified log, in real time. Hertzwise reads it there, and reads Tidal's own `player.log` at start-up. It switches the device Tidal plays to, which can differ from the system output.
+- **Apple Music**: Music's messages in the unified log, read through `log stream`, the approach Hertzwise inherits from SyncHz.
+- **A rate the DAC can't play**: the DAC plays the nearest rate it supports, and Hertzwise shows a notice instead of claiming the switch.
+- **Volume and EQ**: a muted process tap per device, bound to the device's clock, so nothing is resampled. At full volume with the EQ off, samples reach the DAC unchanged. Details: [docs/audio-engine.md](https://github.com/zeetabit/Hertzwise/blob/main/docs/audio-engine.md).
+
 ## Install
 
 1. Download the latest `.dmg` from [Releases](https://github.com/zeetabit/Hertzwise/releases/latest) and drag **Hertzwise** into Applications.
