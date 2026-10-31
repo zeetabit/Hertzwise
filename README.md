@@ -14,6 +14,17 @@ It works with Apple Music and Tidal, adds a volume stage for DACs that ignore th
   <img alt="The Hertzwise panel: Tidal at 192 kHz, in sync with the PAW S1" src="branding/screenshots/panel-light.png" width="340">
 </picture>
 
+## Why
+
+macOS runs each output device at one sample rate and resamples everything else to it, so a 96 kHz track on a DAC left at 48 kHz plays as 48 kHz. Players work around this with an exclusive mode, but Tidal's takes the whole device away from other apps, and on some setups drops audio or locks the volume. Hertzwise keeps exclusive mode off and switches the DAC's rate to each track instead.
+
+| | Hertzwise | SyncHz | LosslessSwitcher |
+|---|---|---|---|
+| Players | Apple Music, Tidal | Apple Music | Apple Music |
+| Volume for DACs that ignore the Mac's volume | Yes | No | No |
+| Headphone EQ | Any app, per device | Apple Music | No |
+| macOS | 15+ | 15+ | 11.4+ (2.0 beta for 15.4+) |
+
 ## Status
 
 | Player | Rate switching | Status |
@@ -32,8 +43,6 @@ Each output device's submenu has two switches, on by default only for the Lotoo 
 Both run in one muted process tap per device, so each device is processed once.
 
 ## How it works
-
-macOS runs each output device at one sample rate and resamples everything to it. Hertzwise sets that rate to the playing track's own rate.
 
 - **Tidal**: Core Audio logs the decoded track's format from inside Tidal's player to the unified log, in real time. Hertzwise reads it there, and reads Tidal's own `player.log` at start-up. It switches the device Tidal plays to, which can differ from the system output.
 - **Apple Music**: Music's messages in the unified log, read through `log stream`, the approach Hertzwise inherits from SyncHz.

@@ -4,6 +4,29 @@ How Hertzwise applies volume and EQ without a driver, and the Core Audio
 behaviour behind each design choice. Code: `Audio/ProcessTapEngine.swift`
 (one device's path) and `Audio/OutputPaths.swift` (which devices get one).
 
+## Overview
+
+```mermaid
+flowchart LR
+    subgraph detect [Rate detection]
+        tidal["Tidal<br>unified log + player.log"] --> arbiter["SourceArbiter<br>player that started last"]
+        music["Apple Music<br>unified log via log stream"] --> arbiter
+        arbiter --> rate["Nearest rate<br>the device supports"]
+    end
+    rate -- "nominal sample rate" --> dac[DAC]
+
+    players[Players] --> coreaudiod["coreaudiod<br>at the device's rate"]
+    coreaudiod -- "no path" --> dac
+    subgraph path [Per-device path: volume or EQ on]
+        tap["Muted process tap<br>all but Hertzwise"] --> eq["EQ<br>when on"] --> volume[Volume]
+    end
+    coreaudiod --> tap
+    volume --> dac
+```
+
+Detection is `NowPlaying/` and `Models/SampleRateModel.swift`. When Tidal
+holds the device in exclusive mode, Hertzwise leaves the rate to Tidal.
+
 ## One path per device
 
 A device gets a path while "Control volume" is on for it, or while the EQ is
