@@ -7,7 +7,7 @@
 
 Automatic sample-rate switching for Mac music players, so your DAC follows every track and lossless plays bit-perfect.
 
-Hertzwise is a fork of [SyncHz](https://github.com/jcongaku/SyncHz) by Gary Kong. It keeps SyncHz's Apple Music support and headphone EQ, and adds other players, a volume stage for DACs that ignore the Mac's volume, and a per-device EQ.
+It works with Apple Music and Tidal, adds a volume stage for DACs that ignore the Mac's volume, and has a headphone EQ you switch on per output device.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="branding/screenshots/panel-dark.png">
@@ -21,8 +21,6 @@ Hertzwise is a fork of [SyncHz](https://github.com/jcongaku/SyncHz) by Gary Kong
 | Apple Music | Yes | From SyncHz |
 | Tidal (exclusive mode off) | Yes | New |
 | YouTube Music | Planned | Later |
-
-For how rate detection and the EQ filters work, see the [SyncHz README](https://github.com/jcongaku/SyncHz#readme).
 
 ## Per-device volume and EQ
 
@@ -74,7 +72,7 @@ Track info and playback controls come from [mediaremote-adapter](https://github.
 
 ## Acknowledgements
 
-- **[SyncHz](https://github.com/jcongaku/SyncHz)** by Gary Kong, which Hertzwise is built on.
+- **[SyncHz](https://github.com/jcongaku/SyncHz)** by Gary Kong, which Hertzwise is built on. Its README explains how rate detection and the EQ filters work.
 - **[LosslessSwitcher](https://github.com/vincentneo/LosslessSwitcher)** by Vincent Neo, which SyncHz credits as its inspiration.
 - **[mediaremote-adapter](https://github.com/ungive/mediaremote-adapter)** by Jonas van den Berg, BSD 3-Clause, for now-playing access on macOS 15.4 and later.
 
