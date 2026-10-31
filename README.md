@@ -1,9 +1,9 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="branding/banner-dark.png">
-  <img alt="Hertzwise" src="branding/banner-light.png" width="460">
-</picture>
-
-# Hertzwise
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="branding/banner-dark.png">
+    <img alt="Hertzwise" src="branding/banner-light.png" width="460">
+  </picture>
+</h1>
 
 Automatic sample-rate switching for Mac music players, so your DAC follows every track and lossless plays bit-perfect.
 
