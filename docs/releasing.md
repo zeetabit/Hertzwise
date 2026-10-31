@@ -71,8 +71,9 @@ of each key somewhere safe (a password manager):
 1. Import the identity `.p12` into the login keychain (double-click it), and
    the Sparkle key with `generate_keys --account hertzwise -f sparkle-key.txt`.
 2. Optional, for local builds signed like releases (one set of permissions
-   for Xcode builds and the installed app). This setup stays local; nothing
-   of it is committed.
+   for Xcode builds and the installed app). The committed `Signing.xcconfig`
+   includes `Signing.local.xcconfig` when it exists; both local files are
+   gitignored.
 
    The project reads two variables, `HERTZWISE_CODE_SIGN_STYLE` and
    `HERTZWISE_ENTITLEMENTS`, which default to automatic signing and
@@ -96,16 +97,9 @@ of each key somewhere safe (a password manager):
           Signing.local.entitlements
       ```
 
-   3. Keep both out of git for this clone only:
-      `printf 'Signing.local.xcconfig\nSigning.local.entitlements\n' >> .git/info/exclude`.
-   4. Link the xcconfig: in Xcode, add `Signing.local.xcconfig` to the project
-      without adding it to a target, then select the project (not the target)
-      → Info → Configurations, and set Debug and Release to
-      `Signing.local.xcconfig`. This edits `project.pbxproj` locally.
-   5. Never commit that link: when committing other project changes, stage
-      them without it (`git add -p SampleRateSwitcher.xcodeproj/project.pbxproj`
-      and skip the `Signing.local.xcconfig` lines).
-
    Check with `xcodebuild -showBuildSettings`: `CODE_SIGN_IDENTITY` should
-   read `Hertzwise` and `CODE_SIGN_STYLE` `Manual`. Without these files and the
-   link, builds use the defaults.
+   read `Hertzwise` and `CODE_SIGN_STYLE` `Manual`. Without these files,
+   builds use the defaults.
+
+   To sign with your own Apple team instead, put only
+   `DEVELOPMENT_TEAM = <your Team ID>` in `Signing.local.xcconfig`.
