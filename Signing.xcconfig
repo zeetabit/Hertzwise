@@ -1,0 +1,4 @@
+// The signing team comes from Signing.local.xcconfig, which is not committed:
+// put `DEVELOPMENT_TEAM = <your Team ID>` there. Without it, builds are signed
+// ad hoc and macOS asks for the audio-capture permission again after each one.
+#include? "Signing.local.xcconfig"

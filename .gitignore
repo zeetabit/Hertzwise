@@ -6,3 +6,7 @@ xcuserdata/
 *.xcscmblueprint
 *.xccheckout
 /tmp
+
+# Personal signing team, see Signing.xcconfig
+Signing.local.xcconfig
+Signing.local.entitlements

@@ -99,6 +99,7 @@
 		A20000000000000000000036 /* LogFileTail.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LogFileTail.swift; sourceTree = "<group>"; };
 		A20000000000000000000035 /* AudioProcessMonitor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioProcessMonitor.swift; sourceTree = "<group>"; };
 		B20000000000000000000008 /* SourceArbiterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SourceArbiterTests.swift; sourceTree = "<group>"; };
+		A20000000000000000000037 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 		A20000000000000000000040 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = "de.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
 		A20000000000000000000050 /* de */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = de; path = "de.lproj/Localizable.strings"; sourceTree = "<group>"; };
 		A20000000000000000000041 /* es */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = es; path = "es.lproj/InfoPlist.strings"; sourceTree = "<group>"; };
@@ -160,6 +161,7 @@
 				A90000000000000000000002 /* Localizable.strings */,
 				A20000000000000000000005 /* Info.plist */,
 				A20000000000000000000007 /* SampleRateSwitcher.entitlements */,
+				A20000000000000000000037 /* Signing.xcconfig */,
 			);
 			name = "";
 			sourceTree = "<group>";
@@ -489,7 +491,6 @@
 				CURRENT_PROJECT_VERSION = 4;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -516,7 +517,6 @@
 				CURRENT_PROJECT_VERSION = 4;
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = "";
 				ENABLE_HARDENED_RUNTIME = YES;
 				INFOPLIST_FILE = Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
@@ -533,9 +533,9 @@
 		};
 		A80000000000000000000003 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A20000000000000000000037 /* Signing.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 			};
@@ -543,9 +543,9 @@
 		};
 		A80000000000000000000004 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = A20000000000000000000037 /* Signing.xcconfig */;
 			buildSettings = {
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 			};
